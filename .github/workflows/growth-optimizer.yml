@@ -1,0 +1,46 @@
+name: Cat growth optimizer
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install runtime dependency
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Generate growth report
+        env:
+          SUPABASE_DB_URL: \${{ secrets.SUPABASE_DB_URL }}
+          REPORT_DAYS: 7
+        run: |
+          node scripts/growth-report.mjs | tee /tmp/growth-report.md
+          cat /tmp/growth-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Safely optimize experiment traffic
+        env:
+          SUPABASE_DB_URL: \${{ secrets.SUPABASE_DB_URL }}
+          AUTO_OPTIMIZE: "true"
+          OPTIMIZE_DAYS: 7
+          EXPERIMENT_KEY: difficulty_v2
+        run: |
+          echo "## 自动实验优化" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/optimize.mjs | tee /tmp/optimizer.txt
+          {
+            echo '~~~text'
+            cat /tmp/optimizer.txt
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
