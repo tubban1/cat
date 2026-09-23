@@ -67,7 +67,7 @@ import "../styles/game.css";
 
     <footer class="bottom-bar">
       <div class="hint" id="hint">按住小鱼，往右拖 →</div>
-      <button class="footer-link audio-link" id="audioButton" type="button" aria-pressed="true">🔊 音乐</button>
+      <button class="footer-link audio-link" id="audioButton" type="button" aria-pressed="true">🔊 声音</button>
       <button class="footer-link" id="leaderboardLink" type="button">全球榜</button>
       <button class="footer-link" id="feedbackLink" type="button">反馈</button>
     </footer>
@@ -459,7 +459,7 @@ import "../styles/game.css";
     let audioEnabled = safeGet("cat_audio_enabled") !== "0";
 
     function updateAudioButton() {
-      audioButton.textContent = audioEnabled ? "🔊 音乐" : "🔇 静音";
+      audioButton.textContent = audioEnabled ? "🔊 声音" : "🔇 静音";
       audioButton.setAttribute("aria-pressed", audioEnabled ? "true" : "false");
       audioButton.classList.toggle("active", audioEnabled);
     }
@@ -474,8 +474,8 @@ import "../styles/game.css";
           sfxGain = audio.createGain();
 
           masterGain.gain.value = 0.88;
-          musicGain.gain.value = 0.046;
-          sfxGain.gain.value = 0.72;
+          musicGain.gain.value = 0.11;
+          sfxGain.gain.value = 0.82;
 
           musicGain.connect(masterGain);
           sfxGain.connect(masterGain);
@@ -585,10 +585,10 @@ import "../styles/game.css";
 
         if (!attack && !danger && state.started) {
           const accent = musicStep % 4 === 0 ? 1.18 : 0.82;
-          pluck(note, nextMusicTime, (0.020 + p * 0.004) * accent);
-          if (musicStep % 4 === 0) softBass(note / 2, nextMusicTime, 0.010 + p * 0.003);
+          pluck(note, nextMusicTime, (0.034 + p * 0.007) * accent);
+          if (musicStep % 4 === 0) softBass(note / 2, nextMusicTime, 0.017 + p * 0.004);
         } else if (danger && musicStep % 4 === 0) {
-          softBass(82.41, nextMusicTime, 0.017 + p * 0.003);
+          softBass(82.41, nextMusicTime, 0.026 + p * 0.005);
         }
 
         musicStep++;
@@ -601,9 +601,9 @@ import "../styles/game.css";
       const target =
         !audioEnabled ? 0.0001 :
         state.phase === "attack" ? 0.0001 :
-        state.phase === "watching" ? 0.015 :
-        state.phase === "warning" ? 0.020 :
-        state.started ? 0.050 : 0.032;
+        state.phase === "watching" ? 0.028 :
+        state.phase === "warning" ? 0.040 :
+        state.started ? 0.115 : 0.055;
       musicGain.gain.setTargetAtTime(target, audio.currentTime, 0.045);
     }
 
@@ -632,6 +632,66 @@ import "../styles/game.css";
       tone(104, 0.34, "sawtooth", 0.050);
       tone(73.42, 0.42, "sine", 0.042, 0.025);
       noiseBurst(0.20, 0.028);
+    }
+
+    let lastDragSoundAt = 0;
+    let lastDragSoundProgress = -10;
+
+    function dragSound(progress: number) {
+      const now = performance.now();
+      if (now - lastDragSoundAt < 58 || Math.abs(progress - lastDragSoundProgress) < 3.5) return;
+      lastDragSoundAt = now;
+      lastDragSoundProgress = progress;
+      const normalized = Math.max(0, Math.min(1, progress / 100));
+      tone(310 + normalized * 150, 0.025, "triangle", 0.006 + normalized * 0.002);
+    }
+
+    function bluffRustleSound() {
+      noiseBurst(0.075, 0.009);
+      tone(470, 0.035, "triangle", 0.011, 0.01);
+      tone(365, 0.04, "sine", 0.007, 0.055);
+    }
+
+    function dangerRiseSound() {
+      tone(360, 0.055, "triangle", 0.022);
+      tone(510, 0.06, "triangle", 0.024, 0.055);
+      tone(720, 0.07, "triangle", 0.021, 0.115);
+    }
+
+    function heartbeatSound() {
+      tone(82.41, 0.11, "sine", 0.038);
+      tone(82.41, 0.09, "sine", 0.030, 0.145);
+    }
+
+    function escapeReliefSound() {
+      noiseBurst(0.10, 0.007);
+      tone(523.25, 0.055, "sine", 0.018, 0.03);
+      tone(659.25, 0.07, "sine", 0.020, 0.09);
+    }
+
+    function milestoneSound(score: number) {
+      const base = score >= 20 ? 392 : score >= 10 ? 349.23 : 329.63;
+      tone(base, 0.08, "triangle", 0.025);
+      tone(base * 1.25, 0.10, "triangle", 0.023, 0.08);
+      tone(base * 1.5, 0.12, "triangle", 0.021, 0.17);
+      tone(base * 2, 0.14, "sine", 0.018, 0.27);
+    }
+
+    function nearMissCaughtSound(latencyMs: number) {
+      if (latencyMs > 0 && latencyMs < 180) {
+        tone(247, 0.07, "square", 0.030);
+        tone(196, 0.11, "square", 0.028, 0.06);
+        noiseBurst(0.11, 0.018);
+        return;
+      }
+      nearMissCaughtSound(latency);
+    }
+
+    function challengeWinSound() {
+      tone(523.25, 0.08, "triangle", 0.025);
+      tone(659.25, 0.08, "triangle", 0.024, 0.08);
+      tone(783.99, 0.11, "triangle", 0.023, 0.16);
+      tone(1046.5, 0.16, "sine", 0.020, 0.26);
     }
 
     audioButton.addEventListener("click", () => {
@@ -748,7 +808,7 @@ import "../styles/game.css";
       if (state.phase === "attack") return;
       setPhase("fake");
       queueEvent("fake_cue", { pressure: Number(pressure().toFixed(3)) });
-      fakeSound();
+      bluffRustleSound();
       const hold = state.score >= 15 ? rand(240, 380) : rand(320, 470);
 
       state.timer = window.setTimeout(() => {
@@ -776,7 +836,7 @@ import "../styles/game.css";
       setPhase("warning");
       signal.textContent = "…";
       signal.className = "signal show";
-      warningSound();
+      dangerRiseSound();
 
       const p = pressure();
       const anticipation = Math.max(
@@ -793,6 +853,7 @@ import "../styles/game.css";
         watchOverlay.classList.add("show");
         live.textContent = "猫咪正在盯着你，立刻停止移动。";
         freezeSound();
+        heartbeatSound();
         vibrate(16);
         queueEvent("eyes_open", { anticipationMs: Math.round(anticipation) });
 
@@ -808,7 +869,7 @@ import "../styles/game.css";
             watchOverlay.classList.remove("show");
             signal.textContent = "安全";
             signal.className = "signal show safe";
-            tone(720, 0.055, "sine", 0.018);
+            escapeReliefSound();
             vibrate(7);
             queueEvent("look_survived", { survived: state.survivedLooks });
             window.setTimeout(() => { signal.className = "signal"; }, 280);
@@ -864,6 +925,7 @@ import "../styles/game.css";
       if (beat > 0 && state.score >= beat) {
         resultKicker.textContent = "挑战成功";
         resultTitle.textContent = "你赢了。";
+        challengeWinSound();
         resultSub.textContent = "超过了 " + beat + " 分，把更难的挑战发回去。";
         queueEvent("challenge_beat", { target: beat });
       } else {
@@ -890,6 +952,9 @@ import "../styles/game.css";
       signal.textContent = "+1";
       signal.className = "signal show safe";
       successSound();
+      if (state.score === 5 || state.score === 10 || state.score === 20 || (state.score > 20 && state.score % 10 === 0)) {
+        window.setTimeout(() => milestoneSound(state.score), 180);
+      }
       vibrate(8);
       queueEvent("fish_stolen", { pressure: Number(pressure().toFixed(3)) });
 
@@ -952,6 +1017,7 @@ import "../styles/game.css";
         queueEvent("first_interaction", {}, true);
       }
       startRun();
+      setMusicMood();
       state.drag = true;
       state.lastX = event.clientX;
       fish.setPointerCapture?.(event.pointerId);
@@ -975,6 +1041,7 @@ import "../styles/game.css";
       if (state.phase === "sleeping" || state.phase === "fake" || state.phase === "warning") {
         const scale = device === "touch" ? config.dragScaleTouch : config.dragScalePointer;
         setProgress(state.progress + (dx > 0 ? dx * scale : dx * 0.07));
+        if (dx > 0) dragSound(state.progress);
         if (state.progress >= 100) {
           state.drag = false;
           fish.classList.remove("dragging");
