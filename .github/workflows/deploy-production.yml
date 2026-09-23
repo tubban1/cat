@@ -1,0 +1,176 @@
+name: Deploy cat.fde.fan
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: cat-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build and type-check
+        run: npm run build
+
+      - name: Validate feedback database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/init-feedback.mjs
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest --no-audit --no-fund
+
+      - name: Create or link Vercel project
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          vercel project add cat --token="$VERCEL_API_TOKEN" --yes >/tmp/vercel-project-add.log 2>&1 || true
+          cat /tmp/vercel-project-add.log || true
+          vercel link --yes --project cat --token="$VERCEL_API_TOKEN"
+          test -f .vercel/project.json
+          cat .vercel/project.json
+
+      - name: Enable Vercel Analytics
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+        run: |
+          set +e
+          vercel project web-analytics cat --token="$VERCEL_API_TOKEN" --yes --format json
+          ANALYTICS_STATUS=$?
+          vercel project speed-insights cat --token="$VERCEL_API_TOKEN" --yes --format json
+          SPEED_STATUS=$?
+          set -e
+          echo "Web Analytics command status: $ANALYTICS_STATUS"
+          echo "Speed Insights command status: $SPEED_STATUS"
+
+      - name: Deploy once to Vercel production
+        id: deploy
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          vercel deploy --prod --yes             --token="$VERCEL_API_TOKEN"             --env "SUPABASE_DB_URL=$SUPABASE_DB_URL"             2>&1 | tee /tmp/vercel-deploy.log
+
+          DEPLOY_URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -n 1)"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "Could not discover deployment URL"
+            exit 1
+          fi
+          echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "Deployment URL: $DEPLOY_URL"
+
+      - name: Attach cat.fde.fan to Vercel
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+        run: |
+          set +e
+          vercel domains add cat.fde.fan --project cat --token="$VERCEL_API_TOKEN" --yes
+          ADD_STATUS=$?
+          set -e
+          echo "Domain add status: $ADD_STATUS (non-zero is acceptable if already attached)"
+
+      - name: Configure Cloudflare DNS
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          API="https://api.cloudflare.com/client/v4"
+          AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+
+          ZONE_JSON="$(curl -fsS -G "$API/zones"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=fde.fan"             --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID")"
+
+          ZONE_ID="$(echo "$ZONE_JSON" | jq -r '.result[0].id // empty')"
+          if [ -z "$ZONE_ID" ]; then
+            echo "Cloudflare zone fde.fan was not found for the configured account/token."
+            echo "$ZONE_JSON" | jq .
+            exit 1
+          fi
+
+          RECORD_JSON="$(curl -fsS -G "$API/zones/$ZONE_ID/dns_records"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=cat.fde.fan")"
+
+          RECORD_ID="$(echo "$RECORD_JSON" | jq -r '.result[0].id // empty')"
+          PAYLOAD='{"type":"CNAME","name":"cat","content":"cname.vercel-dns-0.com","ttl":60,"proxied":false,"comment":"DON’T WAKE MISO — managed by tubban1/cat"}'
+
+          if [ -n "$RECORD_ID" ]; then
+            RESULT="$(curl -fsS -X PUT "$API/zones/$ZONE_ID/dns_records/$RECORD_ID"               -H "$AUTH" -H "Content-Type: application/json"               --data "$PAYLOAD")"
+          else
+            RESULT="$(curl -fsS -X POST "$API/zones/$ZONE_ID/dns_records"               -H "$AUTH" -H "Content-Type: application/json"               --data "$PAYLOAD")"
+          fi
+
+          echo "$RESULT" | jq .
+          test "$(echo "$RESULT" | jq -r '.success')" = "true"
+
+      - name: Ask Vercel to verify custom domain
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+        run: |
+          set +e
+          vercel domains verify cat.fde.fan --project cat --token="$VERCEL_API_TOKEN"
+          set -e
+
+      - name: Verify deployment health
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          set -euo pipefail
+          echo "Checking immutable deployment: $DEPLOY_URL"
+          curl -fsSL --max-time 15 "$DEPLOY_URL/api/health" | tee /tmp/health.json
+          jq -e '.ok == true and .dbConfigured == true' /tmp/health.json
+
+      - name: Check custom domain propagation
+        id: custom_domain
+        run: |
+          set +e
+          READY=false
+          for i in $(seq 1 12); do
+            if curl -fsSL --max-time 10 https://cat.fde.fan/api/health >/tmp/custom-health.json 2>/dev/null; then
+              if jq -e '.ok == true' /tmp/custom-health.json >/dev/null 2>&1; then
+                READY=true
+                break
+              fi
+            fi
+            sleep 10
+          done
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          echo "Custom domain ready: $READY"
+          set -e
+
+      - name: Deployment summary
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          CUSTOM_READY: ${{ steps.custom_domain.outputs.ready }}
+        run: |
+          {
+            echo "## DON’T WAKE MISO production"
+            echo ""
+            echo "- Vercel deployment: $DEPLOY_URL"
+            echo "- Custom domain: https://cat.fde.fan"
+            echo "- Custom domain responding now: $CUSTOM_READY"
+            echo "- Feedback DB validation: passed"
+            echo "- Web Analytics / Speed Insights: enable commands executed"
+            echo "- Vercel deployments consumed by this workflow: 1"
+          } >> "$GITHUB_STEP_SUMMARY"
