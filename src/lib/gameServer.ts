@@ -102,6 +102,8 @@ export const allowedEvents = new Set([
   "leaderboard_open",
   "leaderboard_scope",
   "nickname_saved",
+  "audio_started",
+  "audio_toggle",
   "feedback_open",
   "feedback_submitted",
   "page_hide",
