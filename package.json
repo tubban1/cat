@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.x" },
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "astro dev",
     "check": "astro check",
-    "build": "astro check && astro build",
+    "build": "node scripts/generate-og.mjs && astro check && astro build",
     "preview": "astro preview"
   },
   "dependencies": {
@@ -21,6 +23,7 @@
     "@astrojs/check": "^0.9.4",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.15.5",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "sharp": "^0.34.3"
   }
 }
