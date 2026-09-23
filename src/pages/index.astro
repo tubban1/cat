@@ -260,6 +260,10 @@ import "../styles/game.css";
       "That was almost criminally smooth.",
     ];
 
+    function randomCaption() {
+      return captions[Math.floor(Math.random() * captions.length)] ?? "One tiny move ended the heist.";
+    }
+
     function trackSafe(name: string, data: Record<string, string | number | boolean> = {}) {
       try { track(name, { variant, device, ...data }); } catch {}
     }
@@ -433,9 +437,9 @@ import "../styles/game.css";
       } else {
         resultTitle.textContent = "MISO SAW YOU.";
         if (latency > 0 && latency < 1000) {
-          resultSub.textContent = Math.round(latency) + " ms after eye contact. " + captions[Math.floor(Math.random() * captions.length)];
+          resultSub.textContent = Math.round(latency) + " ms after eye contact. " + randomCaption();
         } else {
-          resultSub.textContent = captions[Math.floor(Math.random() * captions.length)];
+          resultSub.textContent = randomCaption();
         }
       }
 
