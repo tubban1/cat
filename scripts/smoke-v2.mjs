@@ -27,6 +27,16 @@ async function jsonFetch(path, options = {}) {
 }
 
 try {
+  const savedProfile = await jsonFetch("/api/profile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId, nickname: "CI猫友" }),
+  });
+  if (!savedProfile?.ok || savedProfile?.nickname !== "CI猫友") throw new Error("profile save failed");
+
+  const loadedProfile = await jsonFetch("/api/profile?session=" + encodeURIComponent(sessionId), { cache: "no-store" });
+  if (!loadedProfile?.ok || loadedProfile?.profile?.nickname !== "CI猫友") throw new Error("profile load failed");
+
   const bootstrap = await jsonFetch("/api/bootstrap?session=" + encodeURIComponent(sessionId), { cache: "no-store" });
   if (!bootstrap?.ok || !bootstrap?.experiment?.variant || !bootstrap?.experiment?.config) {
     throw new Error("bootstrap response incomplete");
@@ -63,8 +73,16 @@ try {
   });
   if (!finish?.ok || finish?.score !== 1) throw new Error("run finish failed");
 
+  const renamed = await jsonFetch("/api/profile", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId, nickname: "CI已改名" }),
+  });
+  if (!renamed?.ok || renamed?.nickname !== "CI已改名") throw new Error("profile rename failed");
+
   const leaderboard = await jsonFetch("/api/leaderboard?scope=today&session=" + encodeURIComponent(sessionId) + "&limit=10");
   if (!leaderboard?.ok || !leaderboard?.me?.rank) throw new Error("leaderboard did not include smoke player");
+  if (leaderboard?.me?.nickname !== "CI已改名") throw new Error("leaderboard nickname did not update");
 
   const events = await jsonFetch("/api/events", {
     method: "POST",
@@ -126,12 +144,15 @@ try {
     leaderboardRank: leaderboard.me.rank,
     events: events.accepted,
     feedback: true,
+    profile: true,
+    profileNickname: leaderboard.me.nickname,
   }, null, 2));
 } finally {
   try {
     await pool.query("delete from cat_feedback where session_id=$1", [sessionId]);
     await pool.query("delete from cat_events where session_id=$1", [sessionId]);
     await pool.query("delete from cat_runs where session_id=$1", [sessionId]);
+    await pool.query("delete from cat_profiles where session_id=$1", [sessionId]);
     console.log("Smoke data cleaned:", sessionId);
   } finally {
     await pool.end();
