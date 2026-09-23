@@ -1,11 +1,12 @@
 {
-  "name": "DON'T WAKE MISO",
-  "short_name": "MISO",
-  "description": "Steal the fish. Freeze when Miso looks.",
+  "name": "别吵醒猫咪",
+  "short_name": "猫咪挑战",
+  "description": "猫咪没注意时偷鱼；它盯着你时立刻停手。挑战全球排行榜。",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f3eadc",
   "theme_color": "#f3eadc",
+  "lang": "zh-CN",
   "icons": [
     {
       "src": "/favicon.svg",
