@@ -13,8 +13,8 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
+  release:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]') || contains(github.event.head_commit.message, '[ops]')
     runs-on: ubuntu-latest
     timeout-minutes: 18
 
@@ -27,13 +27,16 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies
+      - name: Install app dependencies
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
         run: npm install --no-audit --no-fund
 
       - name: Build and type-check
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
         run: npm run build
 
       - name: Validate feedback database
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: node scripts/init-feedback.mjs
@@ -41,13 +44,11 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest --no-audit --no-fund
 
-      - name: Create or link Vercel project
+      - name: Link Vercel project
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
           set -euo pipefail
-          vercel project add cat --token="$VERCEL_API_TOKEN" --yes >/tmp/vercel-project-add.log 2>&1 || true
-          cat /tmp/vercel-project-add.log || true
           vercel link --yes --project cat --token="$VERCEL_API_TOKEN"
           test -f .vercel/project.json
           cat .vercel/project.json
@@ -56,16 +57,12 @@ jobs:
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
-          set +e
-          vercel project web-analytics cat --token="$VERCEL_API_TOKEN" --yes --format json
-          ANALYTICS_STATUS=$?
-          vercel project speed-insights cat --token="$VERCEL_API_TOKEN" --yes --format json
-          SPEED_STATUS=$?
-          set -e
-          echo "Web Analytics command status: $ANALYTICS_STATUS"
-          echo "Speed Insights command status: $SPEED_STATUS"
+          set -euo pipefail
+          vercel project web-analytics cat             --token="$VERCEL_API_TOKEN"             --non-interactive             --format json
+          vercel project speed-insights cat             --token="$VERCEL_API_TOKEN"             --non-interactive             --format json
 
       - name: Deploy once to Vercel production
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
         id: deploy
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
@@ -82,15 +79,20 @@ jobs:
           echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "Deployment URL: $DEPLOY_URL"
 
-      - name: Attach cat.fde.fan to Vercel
+      - name: Attach cat.fde.fan to Vercel project
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
-          set +e
-          vercel domains add cat.fde.fan --project cat --token="$VERCEL_API_TOKEN" --yes
-          ADD_STATUS=$?
-          set -e
-          echo "Domain add status: $ADD_STATUS (non-zero is acceptable if already attached)"
+          set -euo pipefail
+          PROJECT_ID="$(jq -r '.projectId' .vercel/project.json)"
+          ORG_ID="$(jq -r '.orgId' .vercel/project.json)"
+          HTTP_CODE="$(curl -sS -o /tmp/vercel-domain.json -w '%{http_code}'             -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains?teamId=$ORG_ID"             -H "Authorization: Bearer $VERCEL_API_TOKEN"             -H "Content-Type: application/json"             --data '{"name":"cat.fde.fan"}')"
+
+          cat /tmp/vercel-domain.json | jq . || cat /tmp/vercel-domain.json
+          case "$HTTP_CODE" in
+            200|201|409) ;;
+            *) echo "Unexpected Vercel domain HTTP status: $HTTP_CODE"; exit 1 ;;
+          esac
 
       - name: Configure Cloudflare DNS
         env:
@@ -101,11 +103,20 @@ jobs:
           API="https://api.cloudflare.com/client/v4"
           AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
 
-          ZONE_JSON="$(curl -fsS -G "$API/zones"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=fde.fan"             --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID")"
+          # Prefer token-visible zone lookup. Account IDs can change when zones are transferred.
+          ZONE_JSON="$(curl -fsS -G "$API/zones"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=fde.fan")"
 
           ZONE_ID="$(echo "$ZONE_JSON" | jq -r '.result[0].id // empty')"
+
+          # Fallback to the configured account constraint when useful.
+          if [ -z "$ZONE_ID" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            ZONE_JSON="$(curl -fsS -G "$API/zones"               -H "$AUTH" -H "Content-Type: application/json"               --data-urlencode "name=fde.fan"               --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID")"
+            ZONE_ID="$(echo "$ZONE_JSON" | jq -r '.result[0].id // empty')"
+          fi
+
           if [ -z "$ZONE_ID" ]; then
-            echo "Cloudflare zone fde.fan was not found for the configured account/token."
+            echo "Cloudflare zone fde.fan is not visible to CLOUDFLARE_API_TOKEN."
+            echo "The token needs Zone:Read and DNS:Edit permission for fde.fan."
             echo "$ZONE_JSON" | jq .
             exit 1
           fi
@@ -129,15 +140,15 @@ jobs:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
           set +e
-          vercel domains verify cat.fde.fan --project cat --token="$VERCEL_API_TOKEN"
+          vercel domains verify cat.fde.fan             --token="$VERCEL_API_TOKEN"             --non-interactive
           set -e
 
-      - name: Verify deployment health
+      - name: Verify immutable deployment health
+        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.url }}
         run: |
           set -euo pipefail
-          echo "Checking immutable deployment: $DEPLOY_URL"
           curl -fsSL --max-time 15 "$DEPLOY_URL/api/health" | tee /tmp/health.json
           jq -e '.ok == true and .dbConfigured == true' /tmp/health.json
 
@@ -148,7 +159,7 @@ jobs:
           READY=false
           for i in $(seq 1 12); do
             if curl -fsSL --max-time 10 https://cat.fde.fan/api/health >/tmp/custom-health.json 2>/dev/null; then
-              if jq -e '.ok == true' /tmp/custom-health.json >/dev/null 2>&1; then
+              if jq -e '.ok == true and .dbConfigured == true' /tmp/custom-health.json >/dev/null 2>&1; then
                 READY=true
                 break
               fi
@@ -159,7 +170,7 @@ jobs:
           echo "Custom domain ready: $READY"
           set -e
 
-      - name: Deployment summary
+      - name: Release summary
         env:
           DEPLOY_URL: ${{ steps.deploy.outputs.url }}
           CUSTOM_READY: ${{ steps.custom_domain.outputs.ready }}
@@ -167,10 +178,9 @@ jobs:
           {
             echo "## DON’T WAKE MISO production"
             echo ""
-            echo "- Vercel deployment: $DEPLOY_URL"
+            if [ -n "$DEPLOY_URL" ]; then echo "- New Vercel deployment: $DEPLOY_URL"; else echo "- New Vercel deployment: skipped (ops-only run)"; fi
             echo "- Custom domain: https://cat.fde.fan"
             echo "- Custom domain responding now: $CUSTOM_READY"
-            echo "- Feedback DB validation: passed"
-            echo "- Web Analytics / Speed Insights: enable commands executed"
-            echo "- Vercel deployments consumed by this workflow: 1"
+            echo "- Web Analytics + Speed Insights: enabled"
+            echo "- Feedback DB: configured"
           } >> "$GITHUB_STEP_SUMMARY"
