@@ -53,17 +53,14 @@ jobs:
           test -f .vercel/project.json
           cat .vercel/project.json
 
-      - name: Enable Vercel Analytics
+      - name: Enable Vercel Web Analytics
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
           set +e
-          printf 'y\n' | vercel project web-analytics enable cat --token="$VERCEL_API_TOKEN"
+          printf 'y\n' | script -qec "vercel project web-analytics enable cat --token=$VERCEL_API_TOKEN" /dev/null
           WEB_ANALYTICS_STATUS=$?
-          printf 'y\n' | vercel project speed-insights enable cat --token="$VERCEL_API_TOKEN"
-          SPEED_INSIGHTS_STATUS=$?
           echo "Web Analytics status: $WEB_ANALYTICS_STATUS"
-          echo "Speed Insights status: $SPEED_INSIGHTS_STATUS"
           set -e
 
       - name: Deploy once to Vercel production
@@ -123,7 +120,7 @@ jobs:
 
           RECORD_JSON="$(curl -fsS -G "$API/zones/$ZONE_ID/dns_records" -H "$AUTH" -H "Content-Type: application/json" --data-urlencode "name=cat.fde.fan")"
           RECORD_ID="$(echo "$RECORD_JSON" | jq -r '.result[0].id // empty')"
-          PAYLOAD='{"type":"CNAME","name":"cat","content":"cname.vercel-dns-0.com","ttl":60,"proxied":false,"comment":"DON’T WAKE MISO — managed by tubban1/cat"}'
+          PAYLOAD='{"type":"CNAME","name":"cat","content":"a29b2037fb3c1fec.vercel-dns-017.com","ttl":60,"proxied":false,"comment":"DON’T WAKE MISO — managed by tubban1/cat"}'
 
           if [ -n "$RECORD_ID" ]; then
             RESULT="$(curl -fsS -X PUT "$API/zones/$ZONE_ID/dns_records/$RECORD_ID" -H "$AUTH" -H "Content-Type: application/json" --data "$PAYLOAD")"
@@ -180,6 +177,7 @@ jobs:
             if [ -n "$DEPLOY_URL" ]; then echo "- New Vercel deployment: $DEPLOY_URL"; else echo "- New Vercel deployment: skipped (ops-only run)"; fi
             echo "- Custom domain: https://cat.fde.fan"
             echo "- Custom domain responding now: $CUSTOM_READY"
-            echo "- Analytics enable commands: executed"
+            echo "- Vercel Web Analytics: enable command executed"
+            echo "- Speed Insights: not auto-enabled because current Vercel CLI warns it may incur charges"
             echo "- Feedback DB: configured"
           } >> "$GITHUB_STEP_SUMMARY"
