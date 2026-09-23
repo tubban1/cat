@@ -182,6 +182,29 @@ jobs:
             exit 1
           fi
 
+      - name: Smoke test feedback API
+        if: contains(github.event.head_commit.message, '[smoke]')
+        run: |
+          set -euo pipefail
+          cat > /tmp/feedback-smoke.json <<'JSON'
+          {
+            "sessionId": "smoke_ci_feedback_api_20260923",
+            "fairness": "fair",
+            "message": "[smoke-test] production feedback API",
+            "score": 3,
+            "challengeTarget": 0,
+            "variant": "A",
+            "locale": "en-CH",
+            "device": "qa"
+          }
+          JSON
+          HTTP_CODE="$(curl -sS --max-time 15 -o /tmp/feedback-smoke-response.json -w '%{http_code}'             -X POST https://cat.fde.fan/api/feedback             -H 'content-type: application/json'             --data-binary @/tmp/feedback-smoke.json)"
+          cat /tmp/feedback-smoke-response.json
+          echo
+          echo "feedback smoke HTTP=$HTTP_CODE"
+          test "$HTTP_CODE" = "201"
+          jq -e '.ok == true' /tmp/feedback-smoke-response.json >/dev/null
+
       - name: Diagnose production endpoints
         run: |
           set +e
