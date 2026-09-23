@@ -148,18 +148,41 @@ jobs:
           curl -fsSL --max-time 15 "$DEPLOY_URL/api/health" | tee /tmp/health.json
           jq -e '.ok == true and .dbConfigured == true' /tmp/health.json
 
+      - name: Diagnose production endpoints
+        run: |
+          set +e
+          echo "=== Vercel production alias ==="
+          curl -sS -D /tmp/alias-headers.txt --max-time 15 https://cat-blue-iota.vercel.app/api/health -o /tmp/alias-body.txt
+          ALIAS_STATUS=$?
+          cat /tmp/alias-headers.txt || true
+          cat /tmp/alias-body.txt || true
+          echo
+          echo "alias curl status=$ALIAS_STATUS"
+
+          echo "=== cat.fde.fan ==="
+          curl -sS -D /tmp/custom-headers.txt --max-time 15 https://cat.fde.fan/api/health -o /tmp/custom-body.txt
+          CUSTOM_STATUS=$?
+          cat /tmp/custom-headers.txt || true
+          cat /tmp/custom-body.txt || true
+          echo
+          echo "custom curl status=$CUSTOM_STATUS"
+          set -e
+
       - name: Check custom domain propagation
         id: custom_domain
         run: |
           set +e
           READY=false
-          for i in $(seq 1 12); do
-            if curl -fsSL --max-time 10 https://cat.fde.fan/api/health >/tmp/custom-health.json 2>/dev/null; then
-              if jq -e '.ok == true and .dbConfigured == true' /tmp/custom-health.json >/dev/null 2>&1; then
-                READY=true
-                break
-              fi
+          for i in $(seq 1 18); do
+            HTTP_CODE="$(curl -sSL --max-time 10 -o /tmp/custom-health.json -w '%{http_code}' https://cat.fde.fan/api/health 2>/tmp/custom-curl.err)"
+            CURL_STATUS=$?
+            if [ "$CURL_STATUS" -eq 0 ] && [ "$HTTP_CODE" = "200" ] && jq -e '.ok == true and .dbConfigured == true' /tmp/custom-health.json >/dev/null 2>&1; then
+              READY=true
+              echo "cat.fde.fan health ready on attempt $i"
+              cat /tmp/custom-health.json
+              break
             fi
+            echo "attempt=$i curl=$CURL_STATUS http=$HTTP_CODE err=$(cat /tmp/custom-curl.err)"
             sleep 10
           done
           echo "ready=$READY" >> "$GITHUB_OUTPUT"
