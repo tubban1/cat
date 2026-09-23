@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cat-v2-ci
+  group: cat-v2-ci-profile-fix
   cancel-in-progress: true
 
 jobs:
