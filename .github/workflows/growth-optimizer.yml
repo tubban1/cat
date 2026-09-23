@@ -24,7 +24,7 @@ jobs:
 
       - name: Generate growth report
         env:
-          SUPABASE_DB_URL: \${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           REPORT_DAYS: 7
         run: |
           node scripts/growth-report.mjs | tee /tmp/growth-report.md
@@ -32,7 +32,7 @@ jobs:
 
       - name: Safely optimize experiment traffic
         env:
-          SUPABASE_DB_URL: \${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           AUTO_OPTIMIZE: "true"
           OPTIMIZE_DAYS: 7
           EXPERIMENT_KEY: difficulty_v2
