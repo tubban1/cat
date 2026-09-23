@@ -27,7 +27,7 @@ try {
   }
 
   const metricsResult = await pool.query(
-    \`with starts as (
+    `with starts as (
        select experiment_variant as variant, session_id, count(*) as plays
          from cat_events
         where event_name='game_start' and created_at >= $1
@@ -61,7 +61,7 @@ try {
        from starts s
        left join feedback f on f.variant=s.variant
       group by s.variant
-      order by s.variant\`,
+      order by s.variant`,
     [since, key],
   );
 
