@@ -16,7 +16,7 @@ const since = new Date(Date.now() - days * 86400000);
 try {
   const [summary, variants, fairness, countries, top] = await Promise.all([
     pool.query(
-      \`with starts as (
+      `with starts as (
          select session_id, count(*) as plays
            from cat_events
           where event_name='game_start' and created_at >= $1
@@ -41,11 +41,11 @@ try {
          count(*) filter (where session_id in (select session_id from shares))::int as sharing_players,
          round((count(*) filter (where session_id in (select session_id from shares))::numeric / nullif(count(*),0)),4) as share_player_rate,
          count(*) filter (where session_id in (select session_id from challenges))::int as challenged_players
-       from starts\`,
+       from starts`,
       [since],
     ),
     pool.query(
-      \`with starts as (
+      `with starts as (
          select experiment_variant as variant, session_id, count(*) as plays
            from cat_events
           where event_name='game_start' and created_at >= $1 and experiment_variant <> ''
@@ -65,11 +65,11 @@ try {
          round((count(*) filter(where (variant,session_id) in (select variant,session_id from shares)))::numeric/nullif(count(*),0),4) as share_rate
        from starts
        group by variant
-       order by variant\`,
+       order by variant`,
       [since],
     ),
     pool.query(
-      \`select experiment_variant as variant,
+      `select experiment_variant as variant,
               count(*)::int as feedbacks,
               count(*) filter(where fairness='too_easy')::int as too_easy,
               count(*) filter(where fairness='fair')::int as fair,
@@ -78,24 +78,24 @@ try {
          from cat_feedback
         where created_at >= $1
         group by experiment_variant
-        order by experiment_variant\`,
+        order by experiment_variant`,
       [since],
     ),
     pool.query(
-      \`select country, count(distinct session_id)::int as players
+      `select country, count(distinct session_id)::int as players
          from cat_events
         where event_name='game_start' and created_at >= $1 and country <> ''
         group by country
         order by players desc
-        limit 10\`,
+        limit 10`,
       [since],
     ),
     pool.query(
-      \`select nickname, country, score, cat_id, finished_at
+      `select nickname, country, score, cat_id, finished_at
          from cat_runs
         where valid=true and finished_at >= $1
         order by score desc, finished_at asc
-        limit 10\`,
+        limit 10`,
       [since],
     ),
   ]);
