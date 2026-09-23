@@ -1,0 +1,17 @@
+{
+  "name": "DON'T WAKE MISO",
+  "short_name": "MISO",
+  "description": "Steal the fish. Freeze when Miso looks.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3eadc",
+  "theme_color": "#f3eadc",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
