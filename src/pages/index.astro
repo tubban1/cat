@@ -1,0 +1,712 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import "../styles/game.css";
+---
+
+<BaseLayout
+  title="DON'T WAKE MISO — Steal the fish"
+  description="Steal the fish. Freeze when Miso looks. A tiny social cat challenge."
+>
+  <main class="game-shell" id="game">
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="wordmark">DON'T WAKE MISO<small>one rule: stop when the eyes open</small></div>
+      <div class="hud" aria-label="Score">
+        <div class="metric"><span>Fish</span><b id="fishCount">0</b></div>
+        <div class="metric"><span>Best</span><b id="bestScore">0</b></div>
+      </div>
+    </header>
+
+    <section class="stage-wrap">
+      <div class="copy">
+        <span class="challenge-chip" id="challenge"></span>
+        <h1 id="headline">STEAL THE FISH.</h1>
+        <p id="subline">Drag it slowly. Freeze the instant Miso opens his eyes.</p>
+      </div>
+
+      <div class="scene" id="scene">
+        <div class="back-glow"></div>
+        <div class="window-light"></div>
+        <div class="table"></div>
+        <div class="plate"></div>
+        <div class="out-zone" id="outZone">OUT</div>
+
+        <div class="cat" id="cat" data-state="sleeping" aria-label="Miso, a sleeping orange cat">
+          <svg viewBox="0 0 640 560" role="img" aria-hidden="true">
+            <defs>
+              <linearGradient id="furGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f6a05d"/>
+                <stop offset=".58" stop-color="#e7783f"/>
+                <stop offset="1" stop-color="#c9542f"/>
+              </linearGradient>
+              <linearGradient id="furLight" x1="0" y1="0" x2="0" y2="1">
+                <stop stop-color="#ffbd7c"/>
+                <stop offset="1" stop-color="#ec8650"/>
+              </linearGradient>
+              <radialGradient id="irisGrad" cx=".38" cy=".34" r=".7">
+                <stop offset="0" stop-color="#bdc77d"/>
+                <stop offset=".62" stop-color="#778552"/>
+                <stop offset="1" stop-color="#465034"/>
+              </radialGradient>
+            </defs>
+
+            <ellipse cx="323" cy="472" rx="188" ry="35" fill="#8e5d3c" opacity=".13"/>
+            <path class="tail fur" d="M479 382c88 13 133 65 109 106-19 33-78 30-89-7-6-22 10-38 29-33 17 4 18 28 1 36 30 4 42-22 25-40-22-23-71-14-102-4z"/>
+            <ellipse class="fur" cx="316" cy="357" rx="195" ry="143"/>
+            <ellipse class="fur-light" cx="309" cy="379" rx="127" ry="83" opacity=".36"/>
+
+            <path class="fur" d="M175 190 126 84l107 49c27-17 58-25 91-25 36 0 68 10 96 28l101-53-43 113c23 29 35 65 35 103 0 97-82 168-189 168S136 396 136 299c0-43 14-80 39-109z"/>
+            <path class="cream" d="M201 187c28-33 70-52 122-52 51 0 95 19 124 52 23 26 33 65 25 103-10 48-47 86-96 100-34 10-73 10-106 0-50-15-88-55-96-102-6-38 3-74 27-101z" opacity=".28"/>
+
+            <path class="stripe" d="M274 119c15-8 29-11 45-11l-13 66-31-6z"/>
+            <path class="stripe" d="M337 109c15 1 29 5 42 11l-6 55-30 2z"/>
+            <path class="stripe" d="M168 225c10-13 22-25 36-34l28 39-35 24z"/>
+            <path class="stripe" d="M480 190c14 9 25 20 35 33l-27 32-35-24z"/>
+
+            <path class="cream ear-l" d="M168 172 141 111l67 31z"/>
+            <path class="cream ear-r" d="M443 143 503 111l-25 67z"/>
+            <path d="M156 137 173 176l26-27z" fill="#eeaa9f" opacity=".62"/>
+            <path d="M458 149 478 177l15-42z" fill="#eeaa9f" opacity=".62"/>
+
+            <g class="closed-eye">
+              <path d="M226 267q31 23 62 0" fill="none" stroke="#27313b" stroke-width="8" stroke-linecap="round"/>
+              <path d="M358 267q31 23 62 0" fill="none" stroke="#27313b" stroke-width="8" stroke-linecap="round"/>
+            </g>
+
+            <g class="open-eye">
+              <ellipse class="iris" cx="258" cy="267" rx="28" ry="24" fill="url(#irisGrad)"/>
+              <ellipse class="iris" cx="390" cy="267" rx="28" ry="24" fill="url(#irisGrad)"/>
+              <ellipse class="pupil ink" cx="258" cy="267" rx="8" ry="19"/>
+              <ellipse class="pupil ink" cx="390" cy="267" rx="8" ry="19"/>
+              <circle class="shine" cx="249" cy="257" r="5"/>
+              <circle class="shine" cx="381" cy="257" r="5"/>
+            </g>
+
+            <path class="nose" d="m324 300-13-8h26z"/>
+            <path d="M324 300q0 13-14 18M324 300q0 13 14 18" fill="none" stroke="#80514a" stroke-width="5" stroke-linecap="round"/>
+            <g opacity=".58" stroke="#715447" stroke-width="4" stroke-linecap="round">
+              <path d="M232 311h-76"/><path d="m231 324-72 17"/>
+              <path d="M416 311h76"/><path d="m417 324 72 17"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="paw" aria-hidden="true">
+          <svg viewBox="0 0 210 120">
+            <defs><linearGradient id="pawGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f39255"/><stop offset="1" stop-color="#d86437"/></linearGradient></defs>
+            <path d="M25 76c0-36 35-60 88-60 51 0 78 19 78 45 0 30-29 43-84 43H52C35 104 25 94 25 76z" fill="url(#pawGrad)"/>
+            <ellipse cx="149" cy="74" rx="15" ry="11" fill="#ffd7aa"/>
+            <ellipse cx="176" cy="70" rx="12" ry="9" fill="#ffd7aa"/>
+          </svg>
+        </div>
+
+        <div class="fish-wrap" id="fish" role="button" tabindex="0" aria-label="Drag the fish out from under Miso's paw">
+          <svg class="fish" viewBox="0 0 240 120" aria-hidden="true">
+            <defs><linearGradient id="fishGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff8177"/><stop offset="1" stop-color="#d64d4b"/></linearGradient></defs>
+            <path d="M53 60 11 22v76z" fill="#d34a48"/>
+            <path d="M49 61c35-49 112-47 155-4-42 49-120 52-155 4z" fill="url(#fishGrad)"/>
+            <path d="M108 29c21 10 35 22 44 34-12 13-27 22-46 30-12-21-12-43 2-64z" fill="#ffd19b" opacity=".65"/>
+            <circle cx="178" cy="52" r="6.5" fill="#25313c"/><circle cx="180" cy="50" r="2.2" fill="#fff"/>
+          </svg>
+        </div>
+
+        <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+      </div>
+
+      <div class="signal" id="signal">FREEZE!</div>
+      <div class="flash" id="flash"></div>
+    </section>
+
+    <footer class="bottom-bar">
+      <div class="hint" id="hint">Hold the fish and pull →</div>
+      <button class="feedback-link" id="feedbackLink" type="button">FEEDBACK</button>
+    </footer>
+
+    <div class="overlay" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <section class="card">
+        <div class="result-face" id="resultFace">😾</div>
+        <h2 class="result-title" id="resultTitle">MISO SAW YOU.</h2>
+        <p class="result-sub" id="resultSub">One tiny move ended the run.</p>
+        <div class="result-grid">
+          <div class="stat"><b id="resultFish">0</b><span>fish stolen</span></div>
+          <div class="stat"><b id="resultBest">0</b><span>personal best</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="retryBtn" type="button">AGAIN</button>
+          <button class="btn secondary" id="challengeBtn" type="button">CHALLENGE</button>
+          <button class="btn accent" id="shareBtn" type="button">SHARE THE MOMENT</button>
+        </div>
+
+        <div class="fairness">
+          <div class="fairness-label">How did that feel?</div>
+          <div class="fairness-row">
+            <button class="fair-btn" data-fairness="too_easy" type="button">😴 Too easy</button>
+            <button class="fair-btn" data-fairness="fair" type="button">😼 Fair</button>
+            <button class="fair-btn" data-fairness="unfair" type="button">😾 Unfair</button>
+          </div>
+          <div class="feedback-form" id="resultFeedbackForm">
+            <textarea id="resultFeedbackText" maxlength="800" placeholder="One sentence helps us tune Miso…"></textarea>
+            <button class="feedback-submit" id="resultFeedbackSubmit" type="button">SEND FEEDBACK</button>
+          </div>
+          <div class="feedback-note" id="resultFeedbackNote">Thanks — Miso is taking notes.</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="overlay feedback-modal" id="feedbackOverlay" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+      <section class="card">
+        <button class="close-x" id="feedbackClose" type="button" aria-label="Close">×</button>
+        <h2 id="feedbackTitle">HELP TUNE MISO</h2>
+        <p>Was the game readable and fair? We store no IP address and no account is required.</p>
+        <div class="fairness-row">
+          <button class="fair-btn" data-modal-fairness="too_easy" type="button">😴 Too easy</button>
+          <button class="fair-btn" data-modal-fairness="fair" type="button">😼 Fair</button>
+          <button class="fair-btn" data-modal-fairness="unfair" type="button">😾 Unfair</button>
+        </div>
+        <div class="feedback-form show">
+          <textarea id="modalFeedbackText" maxlength="800" placeholder="What should feel better?"></textarea>
+          <button class="feedback-submit" id="modalFeedbackSubmit" type="button">SEND FEEDBACK</button>
+        </div>
+        <div class="feedback-note" id="modalFeedbackNote">Thanks — received.</div>
+      </section>
+    </div>
+
+    <div class="sr" id="live" aria-live="polite"></div>
+  </main>
+
+  <script>
+    import { track } from "@vercel/analytics";
+
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+    const game = $("game");
+    const scene = $("scene");
+    const cat = $("cat");
+    const fish = $("fish");
+    const outZone = $("outZone");
+    const progressBar = $("progressBar");
+    const signal = $("signal");
+    const flash = $("flash");
+    const headline = $("headline");
+    const subline = $("subline");
+    const hint = $("hint");
+    const live = $("live");
+    const challengeChip = $("challenge");
+    const fishCount = $("fishCount");
+    const bestScore = $("bestScore");
+    const resultOverlay = $("resultOverlay");
+    const feedbackOverlay = $("feedbackOverlay");
+    const resultTitle = $("resultTitle");
+    const resultSub = $("resultSub");
+    const resultFish = $("resultFish");
+    const resultBest = $("resultBest");
+    const resultFace = $("resultFace");
+
+    const params = new URLSearchParams(location.search);
+    const beat = Math.max(0, Number(params.get("beat") || 0) || 0);
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const device = matchMedia("(pointer: coarse)").matches ? "touch" : "pointer";
+
+    function safeStorageGet(key: string) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    }
+    function safeStorageSet(key: string, value: string) {
+      try { localStorage.setItem(key, value); } catch {}
+    }
+
+    let sessionId = safeStorageGet("dwm_session");
+    if (!sessionId) {
+      sessionId = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-zA-Z0-9_-]/g, "");
+      safeStorageSet("dwm_session", sessionId);
+    }
+
+    let variant = safeStorageGet("dwm_variant");
+    if (!variant) {
+      variant = Math.random() < .5 ? "A" : "B";
+      safeStorageSet("dwm_variant", variant);
+    }
+
+    let best = Number(safeStorageGet("dwm_best") || 0) || 0;
+    bestScore.textContent = String(best);
+
+    if (beat > 0) {
+      challengeChip.textContent = "BEAT " + beat + " FISH";
+      challengeChip.classList.add("show");
+      try { track("Challenge Open", { target: beat, variant }); } catch {}
+    }
+
+    type Phase = "sleeping" | "fake" | "warning" | "watching" | "attack";
+    const state = {
+      phase: "sleeping" as Phase,
+      fish: 0,
+      progress: 0,
+      drag: false,
+      lastX: 0,
+      started: false,
+      timer: 0 as unknown as number,
+      watchTimer: 0 as unknown as number,
+      watchStarted: 0,
+      attempts: 0,
+      survivedLooks: 0,
+      selectedFairness: "",
+      modalFairness: "",
+    };
+
+    const captions = [
+      "Miso was absolutely pretending to sleep.",
+      "The eyes opened. Your hand did not get the memo.",
+      "One tiny move ended the heist.",
+      "You and Miso disagree on fish ownership.",
+      "That was almost criminally smooth.",
+    ];
+
+    function trackSafe(name: string, data: Record<string, string | number | boolean> = {}) {
+      try { track(name, { variant, device, ...data }); } catch {}
+    }
+
+    function vibrate(pattern: number | number[]) {
+      try { if ("vibrate" in navigator) navigator.vibrate(pattern); } catch {}
+    }
+
+    function setPhase(phase: Phase) {
+      state.phase = phase;
+      cat.dataset.state = phase;
+    }
+
+    function setProgress(value: number) {
+      state.progress = Math.max(0, Math.min(100, value));
+      progressBar.style.setProperty("--p", state.progress + "%");
+      const maxTravel = Math.min(innerWidth * .39, 255);
+      fish.style.setProperty("--travel", (state.progress / 100 * maxTravel) + "px");
+      outZone.classList.toggle("hot", state.progress > 80);
+    }
+
+    function clearTimers() {
+      clearTimeout(state.timer);
+      clearTimeout(state.watchTimer);
+    }
+
+    function rand(min: number, max: number) {
+      return min + Math.random() * (max - min);
+    }
+
+    let audio: AudioContext | null = null;
+    function ensureAudio() {
+      try {
+        audio ||= new AudioContext();
+        if (audio.state === "suspended") void audio.resume();
+        return audio;
+      } catch { return null; }
+    }
+
+    function tone(freq: number, duration = .07, type: OscillatorType = "sine", gain = .026) {
+      const ctx = ensureAudio();
+      if (!ctx) return;
+      const oscillator = ctx.createOscillator();
+      const amp = ctx.createGain();
+      oscillator.type = type;
+      oscillator.frequency.value = freq;
+      amp.gain.setValueAtTime(gain, ctx.currentTime);
+      amp.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + duration);
+      oscillator.connect(amp).connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + duration);
+    }
+
+    function difficulty() {
+      return Math.min(.52, state.fish * .045);
+    }
+
+    function startRun() {
+      if (state.started) return;
+      state.started = true;
+      state.attempts++;
+      trackSafe("Game Start", { challenge: beat, attempt: state.attempts });
+      headline.textContent = "STEAL THE FISH.";
+      subline.textContent = "When the eyes open: don't move.";
+      hint.textContent = "Hold + pull →";
+      scheduleCue();
+    }
+
+    function scheduleCue() {
+      clearTimers();
+      if (!state.started || state.phase === "attack") return;
+      const d = difficulty();
+      const fakeChance = variant === "A" ? .30 : .43;
+      const delay = rand(980, 1900) - d * 650;
+      state.timer = window.setTimeout(() => {
+        Math.random() < fakeChance ? fakeCue() : realCue();
+      }, delay);
+    }
+
+    function fakeCue() {
+      if (state.phase === "attack") return;
+      setPhase("fake");
+      live.textContent = "Miso twitched.";
+      trackSafe("Fake Cue", { score: state.fish });
+      state.timer = window.setTimeout(() => {
+        if (state.phase === "fake") {
+          setPhase("sleeping");
+          scheduleCue();
+        }
+      }, variant === "A" ? 430 : 360);
+    }
+
+    function realCue() {
+      if (state.phase === "attack") return;
+      setPhase("warning");
+      signal.textContent = "…";
+      signal.className = "signal show";
+      tone(430, .05, "sine", .018);
+      const d = difficulty();
+      const anticipation = Math.max(300, (variant === "A" ? 520 : 445) - state.fish * 14);
+
+      state.watchTimer = window.setTimeout(() => {
+        if (state.phase === "attack") return;
+        setPhase("watching");
+        state.watchStarted = performance.now();
+        signal.textContent = "FREEZE!";
+        signal.className = "signal show danger";
+        live.textContent = "Miso is watching. Stop moving.";
+        tone(245, .095, "triangle", .025);
+        vibrate(14);
+        trackSafe("Eyes Open", { score: state.fish });
+
+        const watchWindow = Math.max(620, 1120 - d * 550 + rand(-100, 170));
+        state.watchTimer = window.setTimeout(() => {
+          if (state.phase === "watching") {
+            state.survivedLooks++;
+            setPhase("sleeping");
+            signal.textContent = "SAFE";
+            signal.className = "signal show safe";
+            live.textContent = "Safe. Keep pulling.";
+            tone(660, .06, "sine", .018);
+            trackSafe("Look Survived", { score: state.fish, survived: state.survivedLooks });
+            window.setTimeout(() => { signal.className = "signal"; }, 300);
+            scheduleCue();
+          }
+        }, watchWindow);
+      }, anticipation);
+    }
+
+    function die(movement: number) {
+      if (state.phase === "attack") return;
+      clearTimers();
+      state.drag = false;
+      const latency = Math.max(0, performance.now() - state.watchStarted);
+      setPhase("attack");
+      fish.classList.remove("dragging");
+      signal.className = "signal";
+      flash.classList.add("go");
+      game.classList.add("shake");
+      tone(92, .32, "sawtooth", .052);
+      vibrate([28, 24, 70]);
+      trackSafe("Run End", {
+        score: state.fish,
+        latencyMs: Math.round(latency),
+        movement: Math.round(movement * 10) / 10,
+        survived: state.survivedLooks,
+      });
+
+      if (state.fish > best) {
+        best = state.fish;
+        safeStorageSet("dwm_best", String(best));
+        bestScore.textContent = String(best);
+      }
+
+      window.setTimeout(() => {
+        game.classList.remove("shake");
+        flash.classList.remove("go");
+        showResult(latency);
+      }, reducedMotion ? 60 : 720);
+    }
+
+    function showResult(latency: number) {
+      resultFish.textContent = String(state.fish);
+      resultBest.textContent = String(best);
+      resultFace.textContent = state.fish >= 5 ? "🙀" : "😾";
+
+      if (beat > 0 && state.fish >= beat) {
+        resultTitle.textContent = "YOU BEAT THEM.";
+        resultSub.textContent = "Challenge cleared. Send something harder back.";
+        trackSafe("Challenge Beat", { target: beat, score: state.fish });
+      } else {
+        resultTitle.textContent = "MISO SAW YOU.";
+        if (latency > 0 && latency < 1000) {
+          resultSub.textContent = Math.round(latency) + " ms after eye contact. " + captions[Math.floor(Math.random() * captions.length)];
+        } else {
+          resultSub.textContent = captions[Math.floor(Math.random() * captions.length)];
+        }
+      }
+
+      resultOverlay.classList.add("show");
+    }
+
+    function fishStolen() {
+      clearTimers();
+      state.fish++;
+      fishCount.textContent = String(state.fish);
+      setProgress(0);
+      setPhase("sleeping");
+      signal.textContent = "+1";
+      signal.className = "signal show safe";
+      tone(760, .06, "sine", .024);
+      window.setTimeout(() => tone(980, .08, "sine", .018), 65);
+      vibrate(8);
+      trackSafe("Fish Stolen", { score: state.fish });
+
+      headline.textContent = state.fish === 1 ? "ONE DOWN." : state.fish >= 5 ? "MISO KNOWS." : "KEEP GOING.";
+      subline.textContent = state.fish >= 5 ? "The timing is getting tighter." : "The next fish won't be as easy.";
+      window.setTimeout(() => { signal.className = "signal"; }, 330);
+      scheduleCue();
+    }
+
+    function resetRun() {
+      clearTimers();
+      state.phase = "sleeping";
+      state.fish = 0;
+      state.progress = 0;
+      state.drag = false;
+      state.lastX = 0;
+      state.started = false;
+      state.survivedLooks = 0;
+      state.selectedFairness = "";
+      fishCount.textContent = "0";
+      setProgress(0);
+      setPhase("sleeping");
+      resultOverlay.classList.remove("show");
+      signal.className = "signal";
+      document.querySelectorAll("[data-fairness]").forEach(el => el.classList.remove("selected"));
+      $("resultFeedbackForm").classList.remove("show");
+      $("resultFeedbackNote").classList.remove("show");
+      (document.getElementById("resultFeedbackText") as HTMLTextAreaElement).value = "";
+      headline.textContent = "STEAL THE FISH.";
+      subline.textContent = "Drag it slowly. Freeze the instant Miso opens his eyes.";
+      hint.textContent = "Hold the fish and pull →";
+      trackSafe("Retry", { previousScore: Number(resultFish.textContent || 0) });
+    }
+
+    fish.addEventListener("pointerdown", (event: PointerEvent) => {
+      event.preventDefault();
+      startRun();
+      ensureAudio();
+      state.drag = true;
+      state.lastX = event.clientX;
+      fish.setPointerCapture?.(event.pointerId);
+      fish.classList.add("dragging");
+      tone(355, .04, "sine", .012);
+    });
+
+    fish.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!state.drag || state.phase === "attack") return;
+      event.preventDefault();
+      const dx = event.clientX - state.lastX;
+      state.lastX = event.clientX;
+      if (Math.abs(dx) < .7) return;
+
+      if (state.phase === "watching" && Math.abs(dx) > 2.4) {
+        die(Math.abs(dx));
+        return;
+      }
+
+      if (state.phase === "sleeping" || state.phase === "fake" || state.phase === "warning") {
+        const forwardScale = innerWidth < 700 ? .30 : .23;
+        setProgress(state.progress + (dx > 0 ? dx * forwardScale : dx * .08));
+        if (state.progress >= 100) {
+          state.drag = false;
+          fish.classList.remove("dragging");
+          fishStolen();
+        }
+      }
+    }, { passive: false });
+
+    function endDrag() {
+      state.drag = false;
+      fish.classList.remove("dragging");
+    }
+    fish.addEventListener("pointerup", endDrag);
+    fish.addEventListener("pointercancel", endDrag);
+
+    scene.addEventListener("pointermove", (event: PointerEvent) => {
+      if (reducedMotion || state.drag) return;
+      const rect = scene.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width - .5;
+      const y = (event.clientY - rect.top) / rect.height - .5;
+      scene.style.setProperty("--tilt-x", (x * 1.5) + "deg");
+      scene.style.setProperty("--tilt-y", (-y * 1.2) + "deg");
+    });
+    scene.addEventListener("pointerleave", () => {
+      scene.style.setProperty("--tilt-x", "0deg");
+      scene.style.setProperty("--tilt-y", "0deg");
+    });
+
+    $("retryBtn").addEventListener("click", resetRun);
+
+    function challengeUrl() {
+      const url = new URL(location.href);
+      url.search = "";
+      url.searchParams.set("beat", String(Math.max(1, state.fish)));
+      return url.toString();
+    }
+
+    $("challengeBtn").addEventListener("click", async () => {
+      const url = challengeUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        $("challengeBtn").textContent = "COPIED ✓";
+        window.setTimeout(() => { $("challengeBtn").textContent = "CHALLENGE"; }, 1300);
+      } catch {
+        window.prompt("Challenge link", url);
+      }
+      trackSafe("Challenge Copy", { score: state.fish });
+    });
+
+    async function shareCard() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#f3eadc";
+      ctx.fillRect(0, 0, 1080, 1350);
+
+      const gradient = ctx.createRadialGradient(540, 515, 20, 540, 515, 350);
+      gradient.addColorStop(0, "#f49b58");
+      gradient.addColorStop(1, "#d76236");
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(540, 510, 300, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffd6ab";
+      ctx.beginPath();
+      ctx.moveTo(324, 343); ctx.lineTo(394, 185); ctx.lineTo(465, 350); ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(615, 350); ctx.lineTo(687, 185); ctx.lineTo(756, 343); ctx.fill();
+
+      ctx.fillStyle = "#25313c";
+      ctx.beginPath(); ctx.ellipse(438, 498, 27, 36, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(642, 498, 27, 36, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(429, 486, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(633, 486, 6, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = "#9c5550";
+      ctx.beginPath(); ctx.moveTo(540, 564); ctx.lineTo(517, 548); ctx.lineTo(563, 548); ctx.fill();
+
+      ctx.fillStyle = "#18212b";
+      ctx.textAlign = "center";
+      ctx.font = "900 58px system-ui";
+      ctx.fillText("DON'T WAKE MISO", 540, 105);
+      ctx.font = "1000 168px system-ui";
+      ctx.fillText(String(state.fish), 540, 1008);
+      ctx.font = "900 42px system-ui";
+      ctx.fillText("FISH STOLEN", 540, 1072);
+      ctx.font = "800 31px system-ui";
+      ctx.fillStyle = "rgba(24,33,43,.62)";
+      ctx.fillText("Can you beat me without waking Miso?", 540, 1160);
+      ctx.font = "800 27px system-ui";
+      ctx.fillText("cat.fde.fan", 540, 1240);
+
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("canvas")), "image/png", .92);
+      });
+    }
+
+    $("shareBtn").addEventListener("click", async () => {
+      const url = challengeUrl();
+      const text = "I stole " + state.fish + " fish before Miso caught me. Can you beat me?";
+      try {
+        const blob = await shareCard();
+        const file = new File([blob], "dont-wake-miso.png", { type: "image/png" });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ title: "Don't Wake Miso", text, url, files: [file] });
+        } else if (navigator.share) {
+          await navigator.share({ title: "Don't Wake Miso", text, url });
+        } else {
+          await navigator.clipboard.writeText(text + " " + url);
+          $("shareBtn").textContent = "LINK COPIED ✓";
+          window.setTimeout(() => { $("shareBtn").textContent = "SHARE THE MOMENT"; }, 1400);
+        }
+        trackSafe("Share", { score: state.fish });
+      } catch (error: any) {
+        if (error?.name !== "AbortError") trackSafe("Share Error");
+      }
+    });
+
+    async function sendFeedback(fairness: string, message: string, noteId: string) {
+      if (!fairness) return;
+      const note = $(noteId);
+      try {
+        const response = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            fairness,
+            message,
+            score: state.fish,
+            challengeTarget: beat,
+            variant,
+            locale: navigator.language || "",
+            device,
+          }),
+        });
+        if (!response.ok) throw new Error("feedback");
+        note.textContent = "Thanks — Miso is taking notes.";
+        note.classList.add("show");
+        trackSafe("Feedback Submitted", { fairness, score: state.fish });
+      } catch {
+        note.textContent = "Couldn't send it this time. Please try again.";
+        note.style.color = "#b54d42";
+        note.classList.add("show");
+      }
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-fairness]").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-fairness]").forEach(el => el.classList.remove("selected"));
+        button.classList.add("selected");
+        state.selectedFairness = button.dataset.fairness || "";
+        $("resultFeedbackForm").classList.add("show");
+      });
+    });
+
+    $("resultFeedbackSubmit").addEventListener("click", async () => {
+      const message = (document.getElementById("resultFeedbackText") as HTMLTextAreaElement).value;
+      await sendFeedback(state.selectedFairness, message, "resultFeedbackNote");
+      $("resultFeedbackForm").classList.remove("show");
+    });
+
+    $("feedbackLink").addEventListener("click", () => {
+      feedbackOverlay.classList.add("show");
+      trackSafe("Feedback Open");
+    });
+    $("feedbackClose").addEventListener("click", () => feedbackOverlay.classList.remove("show"));
+
+    document.querySelectorAll<HTMLElement>("[data-modal-fairness]").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-modal-fairness]").forEach(el => el.classList.remove("selected"));
+        button.classList.add("selected");
+        state.modalFairness = button.dataset.modalFairness || "";
+      });
+    });
+
+    $("modalFeedbackSubmit").addEventListener("click", async () => {
+      const message = (document.getElementById("modalFeedbackText") as HTMLTextAreaElement).value;
+      await sendFeedback(state.modalFairness || "fair", message, "modalFeedbackNote");
+      window.setTimeout(() => feedbackOverlay.classList.remove("show"), 900);
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && state.started && state.phase !== "attack") {
+        clearTimers();
+        state.drag = false;
+      } else if (!document.hidden && state.started && state.phase !== "attack") {
+        setPhase("sleeping");
+        scheduleCue();
+      }
+    });
+
+    window.addEventListener("resize", () => setProgress(state.progress));
+  </script>
+</BaseLayout>
