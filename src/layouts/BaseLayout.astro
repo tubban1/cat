@@ -1,6 +1,5 @@
 ---
 import Analytics from "@vercel/analytics/astro";
-import SpeedInsights from "@vercel/speed-insights/astro";
 
 interface Props {
   title?: string;
@@ -8,14 +7,14 @@ interface Props {
   image?: string;
 }
 const {
-  title = "DON'T WAKE MISO",
-  description = "Steal the fish. Freeze when Miso looks.",
+  title = "别吵醒猫咪",
+  description = "猫咪没注意时偷鱼；它盯着你时立刻停手。挑战全球排行榜。",
   image = "https://cat.fde.fan/og-card.png",
 } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
@@ -26,19 +25,19 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
+    <meta property="og:locale" content="zh_CN" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={image} />
-    <meta property="og:image:alt" content="Miso, a sleepy orange cat guarding a fish" />
+    <meta property="og:image:alt" content="别吵醒猫咪游戏分享图" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={image} />
     <title>{title}</title>
     <Analytics />
-    <SpeedInsights />
   </head>
   <body>
     <slot />
