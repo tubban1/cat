@@ -53,6 +53,30 @@ jobs:
           test -f .vercel/project.json
           cat .vercel/project.json
 
+      - name: Sync Supabase secret to Vercel production
+        env:
+          VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          PROJECT_ID="$(jq -r '.projectId' .vercel/project.json)"
+          ORG_ID="$(jq -r '.orgId' .vercel/project.json)"
+          jq -n --arg value "$SUPABASE_DB_URL" '{
+            key: "SUPABASE_DB_URL",
+            value: $value,
+            type: "sensitive",
+            target: ["production"],
+            comment: "DON’T WAKE MISO feedback database"
+          }' > /tmp/vercel-env.json
+
+          HTTP_CODE="$(curl -sS -o /tmp/vercel-env-result.json -w '%{http_code}'             -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/env?teamId=$ORG_ID&upsert=true"             -H "Authorization: Bearer $VERCEL_API_TOKEN"             -H "Content-Type: application/json"             --data-binary @/tmp/vercel-env.json)"
+
+          jq 'del(.created.value, .value)' /tmp/vercel-env-result.json || true
+          case "$HTTP_CODE" in
+            200|201) ;;
+            *) echo "Failed to sync Vercel production env (HTTP $HTTP_CODE)"; exit 1 ;;
+          esac
+
       - name: Enable Vercel Web Analytics
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
@@ -68,10 +92,9 @@ jobs:
         id: deploy
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
-          vercel deploy --prod --yes --token="$VERCEL_API_TOKEN" --env "SUPABASE_DB_URL=$SUPABASE_DB_URL" 2>&1 | tee /tmp/vercel-deploy.log
+          vercel deploy --prod --yes --token="$VERCEL_API_TOKEN" 2>&1 | tee /tmp/vercel-deploy.log
           DEPLOY_URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -n 1)"
           if [ -z "$DEPLOY_URL" ]; then
             echo "Could not discover deployment URL"
