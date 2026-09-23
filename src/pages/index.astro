@@ -1,6 +1,5 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { CATS } from "../data/cats";
 import "../styles/game.css";
 ---
 
@@ -208,11 +207,9 @@ import "../styles/game.css";
       try { localStorage.setItem(key, value); } catch {}
     }
 
-    let sessionId = safeGet("cat_session_v2");
-    if (!sessionId) {
-      sessionId = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-zA-Z0-9_-]/g, "");
-      safeSet("cat_session_v2", sessionId);
-    }
+    const storedSessionId = safeGet("cat_session_v2");
+    const sessionId = storedSessionId || (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-zA-Z0-9_-]/g, "");
+    if (!storedSessionId) safeSet("cat_session_v2", sessionId);
 
     let nickname = safeGet("cat_nickname") || ("猫友" + sessionId.slice(-4).toUpperCase());
     nicknameInput.value = nickname;
@@ -944,7 +941,7 @@ import "../styles/game.css";
 
           const rank = document.createElement("strong");
           rank.className = "lb-rank";
-          rank.textContent = entry.rank <= 3 ? ["🥇","🥈","🥉"][entry.rank - 1] : "#" + entry.rank;
+          rank.textContent = entry.rank <= 3 ? (["🥇","🥈","🥉"][entry.rank - 1] ?? "#" + entry.rank) : "#" + entry.rank;
 
           const person = document.createElement("div");
           person.className = "lb-person";
