@@ -12,26 +12,18 @@ const pool = new Pool({
 });
 
 try {
-  await pool.query(`
-    create table if not exists cat_feedback (
-      id bigserial primary key,
-      created_at timestamptz not null default now(),
-      session_id text not null,
-      fairness text not null check (fairness in ('too_easy','fair','unfair')),
-      message text not null default '',
-      score integer not null default 0 check (score >= 0),
-      challenge_target integer not null default 0 check (challenge_target >= 0),
-      experiment_variant text not null default 'A',
-      locale text not null default '',
-      device text not null default '',
-      country text not null default '',
-      user_agent_family text not null default ''
-    );
-    create index if not exists cat_feedback_created_at_idx on cat_feedback (created_at desc);
-    create index if not exists cat_feedback_variant_idx on cat_feedback (experiment_variant, fairness);
-  `);
-  const result = await pool.query("select current_database() as db, now() as now");
-  console.log("Feedback database ready:", result.rows[0]);
+  const result = await pool.query(
+    "select current_database() as db, now() as now, " +
+    "to_regclass('public.cat_feedback') is not null as feedback_ready, " +
+    "to_regclass('public.cat_events') is not null as events_ready, " +
+    "to_regclass('public.cat_runs') is not null as runs_ready, " +
+    "to_regclass('public.cat_experiments') is not null as experiments_ready"
+  );
+  const row = result.rows[0];
+  if (!row.feedback_ready || !row.events_ready || !row.runs_ready || !row.experiments_ready) {
+    throw new Error("Cat growth schema is incomplete. Apply Supabase migrations first.");
+  }
+  console.log("Cat production database ready:", row);
 } finally {
   await pool.end();
 }
