@@ -34,13 +34,13 @@ export const GET: APIRoute = async ({ request }) => {
 
   try {
     const result = await getDbPool().query(
-      \`with best as (
+      `with best as (
          select distinct on (session_id)
                 session_id, nickname, country, score, cat_id, finished_at
            from cat_runs
           where valid = true
             and finished_at is not null
-            \${filter}
+            ${filter}
           order by session_id, score desc, finished_at asc
        ),
        ranked as (
@@ -53,7 +53,7 @@ export const GET: APIRoute = async ({ request }) => {
               rank::int, players::int
          from ranked
         order by rank asc, finished_at asc
-        limit $1\`,
+        limit $1`,
       params,
     );
 
@@ -63,11 +63,11 @@ export const GET: APIRoute = async ({ request }) => {
       const meFilter = since ? "and finished_at >= $2" : "";
       if (since) meParams.push(since);
       const mine = await getDbPool().query(
-        \`with best as (
+        `with best as (
            select distinct on (session_id)
                   session_id, nickname, country, score, cat_id, finished_at
              from cat_runs
-            where valid = true and finished_at is not null \${meFilter}
+            where valid = true and finished_at is not null ${meFilter}
             order by session_id, score desc, finished_at asc
          ),
          ranked as (
@@ -76,7 +76,7 @@ export const GET: APIRoute = async ({ request }) => {
              from best
          )
          select session_id, nickname, country, score, cat_id, rank::int, players::int
-           from ranked where session_id = $1 limit 1\`,
+           from ranked where session_id = $1 limit 1`,
         meParams,
       );
       me = mine.rows[0] || null;
