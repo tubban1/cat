@@ -62,7 +62,7 @@ try {
          count(*) filter(where plays>=2)::int as repeat_sessions,
          round((count(*) filter(where plays>=2))::numeric/nullif(count(*),0),4) as repeat_rate,
          count(*) filter(where (variant,session_id) in (select variant,session_id from shares))::int as share_sessions,
-         round((count(*) filter(where (variant,session_id) in (select variant,session_id from shares))::numeric/nullif(count(*),0),4) as share_rate
+         round((count(*) filter(where (variant,session_id) in (select variant,session_id from shares)))::numeric/nullif(count(*),0),4) as share_rate
        from starts
        group by variant
        order by variant\`,
