@@ -29,13 +29,13 @@ async function rankFor(sessionId: string, since: Date | null) {
   if (since) params.push(since);
 
   const result = await getDbPool().query(
-    \`with best as (
+    `with best as (
        select distinct on (session_id)
               session_id, nickname, country, score, finished_at
          from cat_runs
         where valid = true
           and finished_at is not null
-          \${filter}
+          ${filter}
         order by session_id, score desc, finished_at asc
      ),
      ranked as (
@@ -47,7 +47,7 @@ async function rankFor(sessionId: string, since: Date | null) {
      select rank::int, players::int, score::int
        from ranked
       where session_id = $1
-      limit 1\`,
+      limit 1`,
     params,
   );
   return result.rows[0] || null;
@@ -75,10 +75,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const found = await getDbPool().query(
-      \`select run_id, token_hash, session_id, started_at, finished_at
+      `select run_id, token_hash, session_id, started_at, finished_at
          from cat_runs
         where run_id = $1
-        limit 1\`,
+        limit 1`,
       [runId],
     );
     const run = found.rows[0];
@@ -93,13 +93,13 @@ export const POST: APIRoute = async ({ request }) => {
     const valid = score <= maxPlausibleScore && score <= 5000;
 
     await getDbPool().query(
-      \`update cat_runs
+      `update cat_runs
           set finished_at = now(),
               duration_ms = $2,
               score = $3,
               nickname = $4,
               valid = $5
-        where run_id = $1\`,
+        where run_id = $1`,
       [runId, Math.min(elapsedMs, 86_400_000), score, nickname, valid],
     );
 
