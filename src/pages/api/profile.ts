@@ -43,9 +43,10 @@ export const POST: APIRoute = async ({ request }) => {
   const nickname = sanitizeNickname(body?.nickname);
 
   try {
-    await getDbPool().query("begin");
+    const client = await getDbPool().connect();
     try {
-      await getDbPool().query(
+      await client.query("begin");
+      await client.query(
         `insert into cat_profiles(session_id, nickname, updated_at)
          values($1,$2,now())
          on conflict(session_id) do update
@@ -53,15 +54,17 @@ export const POST: APIRoute = async ({ request }) => {
         [sessionId, nickname],
       );
 
-      await getDbPool().query(
+      await client.query(
         "update cat_runs set nickname=$2 where session_id=$1",
         [sessionId, nickname],
       );
 
-      await getDbPool().query("commit");
+      await client.query("commit");
     } catch (error) {
-      await getDbPool().query("rollback");
+      await client.query("rollback");
       throw error;
+    } finally {
+      client.release();
     }
 
     return json({ ok: true, nickname }, 200);
