@@ -57,9 +57,14 @@ jobs:
         env:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
-          set -euo pipefail
-          vercel project web-analytics cat             --token="$VERCEL_API_TOKEN"             --non-interactive             --format json
-          vercel project speed-insights cat             --token="$VERCEL_API_TOKEN"             --non-interactive             --format json
+          set +e
+          printf 'y\n' | vercel project web-analytics enable cat --token="$VERCEL_API_TOKEN"
+          WEB_ANALYTICS_STATUS=$?
+          printf 'y\n' | vercel project speed-insights enable cat --token="$VERCEL_API_TOKEN"
+          SPEED_INSIGHTS_STATUS=$?
+          echo "Web Analytics status: $WEB_ANALYTICS_STATUS"
+          echo "Speed Insights status: $SPEED_INSIGHTS_STATUS"
+          set -e
 
       - name: Deploy once to Vercel production
         if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
@@ -69,8 +74,7 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
-          vercel deploy --prod --yes             --token="$VERCEL_API_TOKEN"             --env "SUPABASE_DB_URL=$SUPABASE_DB_URL"             2>&1 | tee /tmp/vercel-deploy.log
-
+          vercel deploy --prod --yes --token="$VERCEL_API_TOKEN" --env "SUPABASE_DB_URL=$SUPABASE_DB_URL" 2>&1 | tee /tmp/vercel-deploy.log
           DEPLOY_URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' /tmp/vercel-deploy.log | tail -n 1)"
           if [ -z "$DEPLOY_URL" ]; then
             echo "Could not discover deployment URL"
@@ -86,8 +90,7 @@ jobs:
           set -euo pipefail
           PROJECT_ID="$(jq -r '.projectId' .vercel/project.json)"
           ORG_ID="$(jq -r '.orgId' .vercel/project.json)"
-          HTTP_CODE="$(curl -sS -o /tmp/vercel-domain.json -w '%{http_code}'             -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains?teamId=$ORG_ID"             -H "Authorization: Bearer $VERCEL_API_TOKEN"             -H "Content-Type: application/json"             --data '{"name":"cat.fde.fan"}')"
-
+          HTTP_CODE="$(curl -sS -o /tmp/vercel-domain.json -w '%{http_code}' -X POST "https://api.vercel.com/v10/projects/$PROJECT_ID/domains?teamId=$ORG_ID" -H "Authorization: Bearer $VERCEL_API_TOKEN" -H "Content-Type: application/json" --data '{"name":"cat.fde.fan"}')"
           cat /tmp/vercel-domain.json | jq . || cat /tmp/vercel-domain.json
           case "$HTTP_CODE" in
             200|201|409) ;;
@@ -103,14 +106,11 @@ jobs:
           API="https://api.cloudflare.com/client/v4"
           AUTH="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
 
-          # Prefer token-visible zone lookup. Account IDs can change when zones are transferred.
-          ZONE_JSON="$(curl -fsS -G "$API/zones"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=fde.fan")"
-
+          ZONE_JSON="$(curl -fsS -G "$API/zones" -H "$AUTH" -H "Content-Type: application/json" --data-urlencode "name=fde.fan")"
           ZONE_ID="$(echo "$ZONE_JSON" | jq -r '.result[0].id // empty')"
 
-          # Fallback to the configured account constraint when useful.
           if [ -z "$ZONE_ID" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            ZONE_JSON="$(curl -fsS -G "$API/zones"               -H "$AUTH" -H "Content-Type: application/json"               --data-urlencode "name=fde.fan"               --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID")"
+            ZONE_JSON="$(curl -fsS -G "$API/zones" -H "$AUTH" -H "Content-Type: application/json" --data-urlencode "name=fde.fan" --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID")"
             ZONE_ID="$(echo "$ZONE_JSON" | jq -r '.result[0].id // empty')"
           fi
 
@@ -121,15 +121,14 @@ jobs:
             exit 1
           fi
 
-          RECORD_JSON="$(curl -fsS -G "$API/zones/$ZONE_ID/dns_records"             -H "$AUTH" -H "Content-Type: application/json"             --data-urlencode "name=cat.fde.fan")"
-
+          RECORD_JSON="$(curl -fsS -G "$API/zones/$ZONE_ID/dns_records" -H "$AUTH" -H "Content-Type: application/json" --data-urlencode "name=cat.fde.fan")"
           RECORD_ID="$(echo "$RECORD_JSON" | jq -r '.result[0].id // empty')"
           PAYLOAD='{"type":"CNAME","name":"cat","content":"cname.vercel-dns-0.com","ttl":60,"proxied":false,"comment":"DON’T WAKE MISO — managed by tubban1/cat"}'
 
           if [ -n "$RECORD_ID" ]; then
-            RESULT="$(curl -fsS -X PUT "$API/zones/$ZONE_ID/dns_records/$RECORD_ID"               -H "$AUTH" -H "Content-Type: application/json"               --data "$PAYLOAD")"
+            RESULT="$(curl -fsS -X PUT "$API/zones/$ZONE_ID/dns_records/$RECORD_ID" -H "$AUTH" -H "Content-Type: application/json" --data "$PAYLOAD")"
           else
-            RESULT="$(curl -fsS -X POST "$API/zones/$ZONE_ID/dns_records"               -H "$AUTH" -H "Content-Type: application/json"               --data "$PAYLOAD")"
+            RESULT="$(curl -fsS -X POST "$API/zones/$ZONE_ID/dns_records" -H "$AUTH" -H "Content-Type: application/json" --data "$PAYLOAD")"
           fi
 
           echo "$RESULT" | jq .
@@ -140,7 +139,7 @@ jobs:
           VERCEL_API_TOKEN: ${{ secrets.VERCEL_API_TOKEN }}
         run: |
           set +e
-          vercel domains verify cat.fde.fan             --token="$VERCEL_API_TOKEN"             --non-interactive
+          vercel domains verify cat.fde.fan --token="$VERCEL_API_TOKEN"
           set -e
 
       - name: Verify immutable deployment health
@@ -181,6 +180,6 @@ jobs:
             if [ -n "$DEPLOY_URL" ]; then echo "- New Vercel deployment: $DEPLOY_URL"; else echo "- New Vercel deployment: skipped (ops-only run)"; fi
             echo "- Custom domain: https://cat.fde.fan"
             echo "- Custom domain responding now: $CUSTOM_READY"
-            echo "- Web Analytics + Speed Insights: enabled"
+            echo "- Analytics enable commands: executed"
             echo "- Feedback DB: configured"
           } >> "$GITHUB_STEP_SUMMARY"
