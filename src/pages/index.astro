@@ -684,7 +684,7 @@ import "../styles/game.css";
         noiseBurst(0.11, 0.018);
         return;
       }
-      nearMissCaughtSound(latency);
+      caughtSound();
     }
 
     function challengeWinSound() {
@@ -890,7 +890,7 @@ import "../styles/game.css";
       watchOverlay.classList.remove("show");
       flash.classList.add("go");
       game.classList.add("shake");
-      caughtSound();
+      nearMissCaughtSound(latency);
       vibrate([30, 22, 75]);
 
       queueEvent("run_end", {
