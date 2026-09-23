@@ -205,6 +205,13 @@ jobs:
           test "$HTTP_CODE" = "201"
           jq -e '.ok == true' /tmp/feedback-smoke-response.json >/dev/null
 
+      - name: V2 end-to-end production smoke
+        if: contains(github.event.head_commit.message, '[deploy]')
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SMOKE_BASE_URL: https://cat.fde.fan
+        run: node scripts/smoke-v2.mjs
+
       - name: Diagnose production endpoints
         run: |
           set +e
