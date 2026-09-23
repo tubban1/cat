@@ -162,14 +162,25 @@ jobs:
           vercel domains verify cat.fde.fan --token="$VERCEL_API_TOKEN"
           set -e
 
-      - name: Verify immutable deployment health
-        if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy]')
-        env:
-          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+      - name: Verify public production health
         run: |
           set -euo pipefail
-          curl -fsSL --max-time 15 "$DEPLOY_URL/api/health" | tee /tmp/health.json
-          jq -e '.ok == true and .dbConfigured == true' /tmp/health.json
+          READY=false
+          for i in $(seq 1 18); do
+            HTTP_CODE="$(curl -sSL --max-time 10 -o /tmp/health.json -w '%{http_code}' https://cat.fde.fan/api/health 2>/tmp/health.err || true)"
+            if [ "$HTTP_CODE" = "200" ] && jq -e '.ok == true and .dbConfigured == true' /tmp/health.json >/dev/null 2>&1; then
+              READY=true
+              echo "Production health passed on attempt $i"
+              cat /tmp/health.json
+              break
+            fi
+            echo "attempt=$i http=$HTTP_CODE body=$(cat /tmp/health.json 2>/dev/null || true) err=$(cat /tmp/health.err 2>/dev/null || true)"
+            sleep 10
+          done
+          if [ "$READY" != "true" ]; then
+            echo "cat.fde.fan did not become healthy in time."
+            exit 1
+          fi
 
       - name: Diagnose production endpoints
         run: |
