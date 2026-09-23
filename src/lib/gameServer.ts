@@ -101,6 +101,7 @@ export const allowedEvents = new Set([
   "challenge_beat",
   "leaderboard_open",
   "leaderboard_scope",
+  "nickname_saved",
   "feedback_open",
   "feedback_submitted",
   "page_hide",
