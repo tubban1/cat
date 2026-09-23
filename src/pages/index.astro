@@ -67,6 +67,7 @@ import "../styles/game.css";
 
     <footer class="bottom-bar">
       <div class="hint" id="hint">按住小鱼，往右拖 →</div>
+      <button class="footer-link audio-link" id="audioButton" type="button" aria-pressed="true">🔊 音乐</button>
       <button class="footer-link" id="leaderboardLink" type="button">全球榜</button>
       <button class="footer-link" id="feedbackLink" type="button">反馈</button>
     </footer>
@@ -184,6 +185,7 @@ import "../styles/game.css";
     const headline = $("headline");
     const subline = $("subline");
     const hint = $("hint");
+    const audioButton = $("audioButton") as HTMLButtonElement;
     const live = $("live");
     const challengeChip = $("challenge");
     const fishCount = $("fishCount");
@@ -417,6 +419,7 @@ import "../styles/game.css";
         catStatus.textContent = "正在盯着你";
         statusDot.className = "status-dot danger";
       }
+      setMusicMood();
     }
 
     function setProgress(value: number) {
@@ -446,27 +449,211 @@ import "../styles/game.css";
     }
 
     let audio: AudioContext | null = null;
-    function ensureAudio() {
-      try {
-        audio ||= new AudioContext();
-        if (audio.state === "suspended") void audio.resume();
-        return audio;
-      } catch { return null; }
+    let masterGain: GainNode | null = null;
+    let musicGain: GainNode | null = null;
+    let sfxGain: GainNode | null = null;
+    let musicTimer = 0 as unknown as number;
+    let musicStep = 0;
+    let nextMusicTime = 0;
+    let audioStartedTracked = false;
+    let audioEnabled = safeGet("cat_audio_enabled") !== "0";
+
+    function updateAudioButton() {
+      audioButton.textContent = audioEnabled ? "🔊 音乐" : "🔇 静音";
+      audioButton.setAttribute("aria-pressed", audioEnabled ? "true" : "false");
+      audioButton.classList.toggle("active", audioEnabled);
     }
 
-    function tone(freq: number, duration = 0.07, type: OscillatorType = "sine", gain = 0.026) {
+    function ensureAudio() {
+      if (!audioEnabled) return null;
+      try {
+        if (!audio) {
+          audio = new AudioContext();
+          masterGain = audio.createGain();
+          musicGain = audio.createGain();
+          sfxGain = audio.createGain();
+
+          masterGain.gain.value = 0.88;
+          musicGain.gain.value = 0.046;
+          sfxGain.gain.value = 0.72;
+
+          musicGain.connect(masterGain);
+          sfxGain.connect(masterGain);
+          masterGain.connect(audio.destination);
+
+          nextMusicTime = audio.currentTime + 0.05;
+          startMusicScheduler();
+        }
+        if (audio.state === "suspended") void audio.resume();
+
+        if (!audioStartedTracked) {
+          audioStartedTracked = true;
+          queueEvent("audio_started", { source: "first_interaction" }, true);
+        }
+        return audio;
+      } catch {
+        return null;
+      }
+    }
+
+    function tone(freq: number, duration = 0.07, type: OscillatorType = "sine", gain = 0.026, when = 0) {
       const ctx = ensureAudio();
-      if (!ctx) return;
+      if (!ctx || !sfxGain) return;
       const oscillator = ctx.createOscillator();
       const amp = ctx.createGain();
+      const start = ctx.currentTime + Math.max(0, when);
       oscillator.type = type;
-      oscillator.frequency.value = freq;
-      amp.gain.setValueAtTime(gain, ctx.currentTime);
-      amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-      oscillator.connect(amp).connect(ctx.destination);
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + duration);
+      oscillator.frequency.setValueAtTime(freq, start);
+      amp.gain.setValueAtTime(Math.max(0.0001, gain), start);
+      amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      oscillator.connect(amp).connect(sfxGain);
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.02);
     }
+
+    function pluck(freq: number, when: number, gain: number) {
+      if (!audio || !musicGain || !audioEnabled) return;
+      const oscillator = audio.createOscillator();
+      const amp = audio.createGain();
+      const filter = audio.createBiquadFilter();
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(freq, when);
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(1700, when);
+      amp.gain.setValueAtTime(Math.max(0.0001, gain), when);
+      amp.gain.exponentialRampToValueAtTime(0.0001, when + 0.24);
+      oscillator.connect(filter).connect(amp).connect(musicGain);
+      oscillator.start(when);
+      oscillator.stop(when + 0.26);
+    }
+
+    function softBass(freq: number, when: number, gain: number) {
+      if (!audio || !musicGain || !audioEnabled) return;
+      const oscillator = audio.createOscillator();
+      const amp = audio.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(freq, when);
+      amp.gain.setValueAtTime(Math.max(0.0001, gain), when);
+      amp.gain.exponentialRampToValueAtTime(0.0001, when + 0.32);
+      oscillator.connect(amp).connect(musicGain);
+      oscillator.start(when);
+      oscillator.stop(when + 0.34);
+    }
+
+    function noiseBurst(duration = 0.16, gain = 0.024) {
+      const ctx = ensureAudio();
+      if (!ctx || !sfxGain) return;
+      const size = Math.max(1, Math.floor(ctx.sampleRate * duration));
+      const buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < size; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / size);
+      }
+      const source = ctx.createBufferSource();
+      const filter = ctx.createBiquadFilter();
+      const amp = ctx.createGain();
+      source.buffer = buffer;
+      filter.type = "bandpass";
+      filter.frequency.value = 780;
+      filter.Q.value = 0.8;
+      amp.gain.value = gain;
+      source.connect(filter).connect(amp).connect(sfxGain);
+      source.start();
+    }
+
+    function startMusicScheduler() {
+      if (musicTimer) return;
+      musicTimer = window.setInterval(scheduleMusic, 80);
+    }
+
+    function scheduleMusic() {
+      if (!audio || !musicGain || !audioEnabled || audio.state !== "running") return;
+
+      const p = pressure();
+      const bpm = 78 + Math.min(42, state.score * 1.6 + p * 10);
+      const stepDuration = (60 / bpm) / 2;
+      const horizon = audio.currentTime + 0.28;
+
+      const notes = [220, 261.63, 329.63, 392, 329.63, 261.63, 293.66, 392];
+      const lateNotes = [220, 293.66, 349.23, 440, 392, 293.66, 329.63, 440];
+
+      while (nextMusicTime < horizon) {
+        const pattern = state.score >= 10 ? lateNotes : notes;
+        const note = pattern[musicStep % pattern.length] ?? 220;
+        const danger = state.phase === "warning" || state.phase === "watching";
+        const attack = state.phase === "attack";
+
+        if (!attack && !danger && state.started) {
+          const accent = musicStep % 4 === 0 ? 1.18 : 0.82;
+          pluck(note, nextMusicTime, (0.020 + p * 0.004) * accent);
+          if (musicStep % 4 === 0) softBass(note / 2, nextMusicTime, 0.010 + p * 0.003);
+        } else if (danger && musicStep % 4 === 0) {
+          softBass(82.41, nextMusicTime, 0.017 + p * 0.003);
+        }
+
+        musicStep++;
+        nextMusicTime += stepDuration;
+      }
+    }
+
+    function setMusicMood() {
+      if (!audio || !musicGain) return;
+      const target =
+        !audioEnabled ? 0.0001 :
+        state.phase === "attack" ? 0.0001 :
+        state.phase === "watching" ? 0.015 :
+        state.phase === "warning" ? 0.020 :
+        state.started ? 0.050 : 0.032;
+      musicGain.gain.setTargetAtTime(target, audio.currentTime, 0.045);
+    }
+
+    function fakeSound() {
+      tone(520, 0.035, "triangle", 0.016);
+      tone(390, 0.045, "sine", 0.010, 0.045);
+    }
+
+    function warningSound() {
+      tone(410, 0.055, "triangle", 0.024);
+      tone(610, 0.065, "triangle", 0.020, 0.055);
+    }
+
+    function freezeSound() {
+      tone(190, 0.12, "square", 0.032);
+      tone(95, 0.18, "sine", 0.030, 0.025);
+    }
+
+    function successSound() {
+      tone(660, 0.07, "sine", 0.026);
+      tone(880, 0.08, "sine", 0.022, 0.065);
+      tone(1108.73, 0.10, "sine", 0.017, 0.13);
+    }
+
+    function caughtSound() {
+      tone(104, 0.34, "sawtooth", 0.050);
+      tone(73.42, 0.42, "sine", 0.042, 0.025);
+      noiseBurst(0.20, 0.028);
+    }
+
+    audioButton.addEventListener("click", () => {
+      audioEnabled = !audioEnabled;
+      safeSet("cat_audio_enabled", audioEnabled ? "1" : "0");
+      updateAudioButton();
+
+      if (audioEnabled) {
+        const ctx = ensureAudio();
+        if (ctx && masterGain) {
+          masterGain.gain.setTargetAtTime(0.88, ctx.currentTime, 0.03);
+          setMusicMood();
+          successSound();
+        }
+      } else if (audio && masterGain) {
+        masterGain.gain.setTargetAtTime(0.0001, audio.currentTime, 0.03);
+      }
+
+      queueEvent("audio_toggle", { enabled: audioEnabled }, true);
+    });
+
+    updateAudioButton();
 
     function vibrate(pattern: number | number[]) {
       try { if ("vibrate" in navigator) navigator.vibrate(pattern); } catch {}
@@ -561,7 +748,7 @@ import "../styles/game.css";
       if (state.phase === "attack") return;
       setPhase("fake");
       queueEvent("fake_cue", { pressure: Number(pressure().toFixed(3)) });
-      tone(360, 0.04, "sine", 0.012);
+      fakeSound();
       const hold = state.score >= 15 ? rand(240, 380) : rand(320, 470);
 
       state.timer = window.setTimeout(() => {
@@ -589,7 +776,7 @@ import "../styles/game.css";
       setPhase("warning");
       signal.textContent = "…";
       signal.className = "signal show";
-      tone(430, 0.045, "sine", 0.018);
+      warningSound();
 
       const p = pressure();
       const anticipation = Math.max(
@@ -605,7 +792,7 @@ import "../styles/game.css";
         signal.className = "signal show danger";
         watchOverlay.classList.add("show");
         live.textContent = "猫咪正在盯着你，立刻停止移动。";
-        tone(230, 0.095, "triangle", 0.03);
+        freezeSound();
         vibrate(16);
         queueEvent("eyes_open", { anticipationMs: Math.round(anticipation) });
 
@@ -621,7 +808,7 @@ import "../styles/game.css";
             watchOverlay.classList.remove("show");
             signal.textContent = "安全";
             signal.className = "signal show safe";
-            tone(680, 0.055, "sine", 0.018);
+            tone(720, 0.055, "sine", 0.018);
             vibrate(7);
             queueEvent("look_survived", { survived: state.survivedLooks });
             window.setTimeout(() => { signal.className = "signal"; }, 280);
@@ -642,7 +829,7 @@ import "../styles/game.css";
       watchOverlay.classList.remove("show");
       flash.classList.add("go");
       game.classList.add("shake");
-      tone(88, 0.32, "sawtooth", 0.052);
+      caughtSound();
       vibrate([30, 22, 75]);
 
       queueEvent("run_end", {
@@ -702,8 +889,7 @@ import "../styles/game.css";
       setPhase("sleeping");
       signal.textContent = "+1";
       signal.className = "signal show safe";
-      tone(770, 0.055, "sine", 0.024);
-      window.setTimeout(() => tone(1030, 0.075, "sine", 0.018), 65);
+      successSound();
       vibrate(8);
       queueEvent("fish_stolen", { pressure: Number(pressure().toFixed(3)) });
 
@@ -760,6 +946,7 @@ import "../styles/game.css";
     fish.addEventListener("pointerdown", (event: PointerEvent) => {
       event.preventDefault();
       ensureAudio();
+      setMusicMood();
       if (!state.firstInteractionSent) {
         state.firstInteractionSent = true;
         queueEvent("first_interaction", {}, true);
@@ -1190,7 +1377,9 @@ import "../styles/game.css";
       if (document.hidden && state.started && state.phase !== "attack") {
         clearTimers();
         state.drag = false;
+        if (audio?.state === "running") void audio.suspend();
       } else if (!document.hidden && state.started && state.phase !== "attack") {
+        if (audioEnabled && audio?.state === "suspended") void audio.resume();
         setPhase("sleeping");
         watchOverlay.classList.remove("show");
         scheduleCue();
