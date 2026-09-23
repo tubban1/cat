@@ -1,0 +1,44 @@
+name: Cat V2 CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cat-v2-ci
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check and build
+        run: npm run build
+
+      - name: Verify real-cat image pool
+        run: node scripts/check-cat-images.mjs
+
+      - name: Validate growth queries
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          REPORT_DAYS: 7
+          OPTIMIZE_DAYS: 7
+          AUTO_OPTIMIZE: "false"
+        run: |
+          node scripts/init-feedback.mjs
+          node scripts/growth-report.mjs
+          node scripts/optimize.mjs
