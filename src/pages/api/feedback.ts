@@ -47,10 +47,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     await getDbPool().query(
-      \`insert into cat_feedback
+      `insert into cat_feedback
         (session_id, run_id, fairness, message, score, challenge_target,
          experiment_key, experiment_variant, cat_id, locale, device, country, user_agent_family)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)\`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [sessionId, runId, fairness, message, score, challengeTarget, experimentKey, variant, catId, locale, device, country, family],
     );
     return json({ ok: true }, 201);
