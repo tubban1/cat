@@ -9,7 +9,7 @@ export type CatPhoto = {
 };
 
 const img = (id: string) =>
-  \`https://images.unsplash.com/\${id}?auto=format&fit=crop&fm=jpg&q=82&w=1200\`;
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&fm=jpg&q=82&w=1200`;
 
 /**
  * Curated real-cat pool.
