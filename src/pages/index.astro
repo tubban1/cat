@@ -11,9 +11,12 @@ import "../styles/game.css";
     <div class="grain" aria-hidden="true"></div>
 
     <header class="topbar">
-      <div class="brand">
+      <div class="topbar-left">
+        <button class="back-button" id="backButton" type="button" aria-label="返回">← 返回</button>
+        <div class="brand">
         <strong>别吵醒猫咪</strong>
         <span>它没看你就偷鱼 · 它盯你就别动</span>
+        </div>
       </div>
       <div class="hud" aria-label="游戏成绩">
         <div class="metric"><span>鱼</span><b id="fishCount">0</b></div>
@@ -70,6 +73,7 @@ import "../styles/game.css";
 
     <div class="overlay" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
       <section class="card result-card">
+        <button class="close-x" id="resultClose" type="button" aria-label="返回游戏">×</button>
         <div class="result-cat-thumb"><img id="resultCatPhoto" alt="" /></div>
         <div class="result-kicker" id="resultKicker">被抓现行</div>
         <h2 class="result-title" id="resultTitle">猫咪发现你了。</h2>
@@ -107,6 +111,7 @@ import "../styles/game.css";
     <div class="overlay" id="leaderboardOverlay" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
       <section class="card leaderboard-card">
         <button class="close-x" id="leaderboardClose" type="button" aria-label="关闭">×</button>
+        <button class="modal-back" id="leaderboardBack" type="button">← 返回游戏</button>
         <div class="leaderboard-head">
           <div>
             <div class="result-kicker">GLOBAL</div>
@@ -114,7 +119,11 @@ import "../styles/game.css";
           </div>
           <div class="player-name-box">
             <label for="nicknameInput">我的昵称</label>
-            <input id="nicknameInput" maxlength="16" autocomplete="off" />
+            <div class="nickname-row">
+              <input id="nicknameInput" maxlength="16" autocomplete="off" />
+              <button id="nicknameSave" class="nickname-save" type="button">保存</button>
+            </div>
+            <div class="nickname-status" id="nicknameStatus">昵称会保存在这台设备和排行榜中</div>
           </div>
         </div>
 
@@ -193,6 +202,9 @@ import "../styles/game.css";
     const leaderboardList = $("leaderboardList");
     const myRank = $("myRank");
     const nicknameInput = $("nicknameInput") as HTMLInputElement;
+    const nicknameSave = $("nicknameSave") as HTMLButtonElement;
+    const nicknameStatus = $("nicknameStatus");
+    const backButton = $("backButton") as HTMLButtonElement;
 
     const params = new URLSearchParams(location.search);
     const beat = Math.max(0, Number(params.get("beat") || 0) || 0);
@@ -212,6 +224,7 @@ import "../styles/game.css";
     if (!storedSessionId) safeSet("cat_session_v2", sessionId);
 
     let nickname = safeGet("cat_nickname") || ("猫友" + sessionId.slice(-4).toUpperCase());
+    let nicknameDirty = false;
     nicknameInput.value = nickname;
     let best = Number(safeGet("cat_best_v2") || 0) || 0;
     bestScore.textContent = String(best);
@@ -976,7 +989,12 @@ import "../styles/game.css";
       resultOverlay.classList.remove("show");
       openLeaderboard();
     });
-    $("leaderboardClose").addEventListener("click", () => leaderboardOverlay.classList.remove("show"));
+    async function closeLeaderboard() {
+      if (nicknameDirty) await saveNickname(false);
+      leaderboardOverlay.classList.remove("show");
+    }
+    $("leaderboardClose").addEventListener("click", () => void closeLeaderboard());
+    $("leaderboardBack").addEventListener("click", () => void closeLeaderboard());
 
     document.querySelectorAll<HTMLElement>(".scope-tab").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1059,6 +1077,37 @@ import "../styles/game.css";
       window.setTimeout(() => feedbackOverlay.classList.remove("show"), 850);
     });
 
+    function returnToGame() {
+      if (leaderboardOverlay.classList.contains("show")) {
+        void closeLeaderboard();
+        return;
+      }
+      if (feedbackOverlay.classList.contains("show")) {
+        feedbackOverlay.classList.remove("show");
+        return;
+      }
+      if (resultOverlay.classList.contains("show")) {
+        resultOverlay.classList.remove("show");
+        return;
+      }
+      if (state.started || state.score > 0 || state.phase === "attack") {
+        resetRun();
+        return;
+      }
+      if (document.referrer && history.length > 1) {
+        history.back();
+      } else {
+        location.href = "/";
+      }
+    }
+
+    backButton.addEventListener("click", returnToGame);
+    $("resultClose").addEventListener("click", returnToGame);
+
+    document.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key === "Escape") returnToGame();
+    });
+
     document.addEventListener("visibilitychange", () => {
       if (document.hidden && state.started && state.phase !== "attack") {
         clearTimers();
@@ -1087,5 +1136,6 @@ import "../styles/game.css";
     queueEvent("page_view", { challenge: beat }, true);
     if (beat > 0) queueEvent("challenge_open", { target: beat, from: challenger }, true);
     void loadExperiment();
+    void loadProfile();
   </script>
 </BaseLayout>
