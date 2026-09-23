@@ -1,174 +1,152 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { CATS } from "../data/cats";
 import "../styles/game.css";
 ---
 
 <BaseLayout
-  title="DON'T WAKE MISO — Steal the fish"
-  description="Steal the fish. Freeze when Miso looks. A tiny social cat challenge."
+  title="别吵醒猫咪｜你能偷走几条鱼？"
+  description="猫咪没注意时偷鱼；它盯着你时立刻停手。挑战全球排行榜，看看你能坚持多久。"
 >
   <main class="game-shell" id="game">
     <div class="grain" aria-hidden="true"></div>
 
     <header class="topbar">
-      <div class="wordmark">DON'T WAKE MISO<small>one rule: stop when the eyes open</small></div>
-      <div class="hud" aria-label="Score">
-        <div class="metric"><span>Fish</span><b id="fishCount">0</b></div>
-        <div class="metric"><span>Best</span><b id="bestScore">0</b></div>
+      <div class="brand">
+        <strong>别吵醒猫咪</strong>
+        <span>它没看你就偷鱼 · 它盯你就别动</span>
+      </div>
+      <div class="hud" aria-label="游戏成绩">
+        <div class="metric"><span>鱼</span><b id="fishCount">0</b></div>
+        <div class="metric"><span>最佳</span><b id="bestScore">0</b></div>
+        <button class="metric rank-button" id="rankButton" type="button"><span>今日</span><b id="rankMetric">--</b></button>
       </div>
     </header>
 
     <section class="stage-wrap">
       <div class="copy">
         <span class="challenge-chip" id="challenge"></span>
-        <h1 id="headline">STEAL THE FISH.</h1>
-        <p id="subline">Drag it slowly. Freeze the instant Miso opens his eyes.</p>
+        <h1 id="headline">把鱼偷走。</h1>
+        <p id="subline">拖住小鱼往右拉。猫咪盯着你时，一毫米都别动。</p>
       </div>
 
       <div class="scene" id="scene">
-        <div class="back-glow"></div>
-        <div class="window-light"></div>
-        <div class="table"></div>
-        <div class="plate"></div>
-        <div class="out-zone" id="outZone">OUT</div>
+        <div class="photo-card" id="photoCard">
+          <img id="catPhoto" alt="本局随机猫咪" crossorigin="anonymous" decoding="async" fetchpriority="high" />
+          <div class="photo-shade"></div>
+          <div class="danger-vignette"></div>
+          <div class="cat-badge">
+            <span class="status-dot" id="statusDot"></span>
+            <strong id="catName">猫咪</strong>
+            <small id="catStatus">正在放松警惕</small>
+          </div>
+          <a class="photo-credit" id="photoCredit" href="#" target="_blank" rel="noreferrer">照片来源</a>
 
-        <div class="cat" id="cat" data-state="sleeping" aria-label="Miso, a sleeping orange cat">
-          <svg viewBox="0 0 640 560" role="img" aria-hidden="true">
-            <defs>
-              <linearGradient id="furGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#f6a05d"/>
-                <stop offset=".58" stop-color="#e7783f"/>
-                <stop offset="1" stop-color="#c9542f"/>
-              </linearGradient>
-              <linearGradient id="furLight" x1="0" y1="0" x2="0" y2="1">
-                <stop stop-color="#ffbd7c"/>
-                <stop offset="1" stop-color="#ec8650"/>
-              </linearGradient>
-              <radialGradient id="irisGrad" cx=".38" cy=".34" r=".7">
-                <stop offset="0" stop-color="#bdc77d"/>
-                <stop offset=".62" stop-color="#778552"/>
-                <stop offset="1" stop-color="#465034"/>
-              </radialGradient>
-            </defs>
+          <div class="watch-overlay" id="watchOverlay" aria-hidden="true">
+            <span>它在看你</span>
+          </div>
 
-            <ellipse cx="323" cy="472" rx="188" ry="35" fill="#8e5d3c" opacity=".13"/>
-            <path class="tail fur" d="M479 382c88 13 133 65 109 106-19 33-78 30-89-7-6-22 10-38 29-33 17 4 18 28 1 36 30 4 42-22 25-40-22-23-71-14-102-4z"/>
-            <ellipse class="fur" cx="316" cy="357" rx="195" ry="143"/>
-            <ellipse class="fur-light" cx="309" cy="379" rx="127" ry="83" opacity=".36"/>
+          <div class="fish-track" aria-label="偷鱼进度">
+            <div class="track-line"></div>
+            <div class="escape-zone" id="escapeZone">安全区</div>
+            <button class="fish-piece" id="fish" type="button" aria-label="按住小鱼往右拖">
+              <span class="fish-emoji">🐟</span>
+              <span class="fish-shadow"></span>
+            </button>
+          </div>
 
-            <path class="fur" d="M175 190 126 84l107 49c27-17 58-25 91-25 36 0 68 10 96 28l101-53-43 113c23 29 35 65 35 103 0 97-82 168-189 168S136 396 136 299c0-43 14-80 39-109z"/>
-            <path class="cream" d="M201 187c28-33 70-52 122-52 51 0 95 19 124 52 23 26 33 65 25 103-10 48-47 86-96 100-34 10-73 10-106 0-50-15-88-55-96-102-6-38 3-74 27-101z" opacity=".28"/>
-
-            <path class="stripe" d="M274 119c15-8 29-11 45-11l-13 66-31-6z"/>
-            <path class="stripe" d="M337 109c15 1 29 5 42 11l-6 55-30 2z"/>
-            <path class="stripe" d="M168 225c10-13 22-25 36-34l28 39-35 24z"/>
-            <path class="stripe" d="M480 190c14 9 25 20 35 33l-27 32-35-24z"/>
-
-            <path class="cream ear-l" d="M168 172 141 111l67 31z"/>
-            <path class="cream ear-r" d="M443 143 503 111l-25 67z"/>
-            <path d="M156 137 173 176l26-27z" fill="#eeaa9f" opacity=".62"/>
-            <path d="M458 149 478 177l15-42z" fill="#eeaa9f" opacity=".62"/>
-
-            <g class="closed-eye">
-              <path d="M226 267q31 23 62 0" fill="none" stroke="#27313b" stroke-width="8" stroke-linecap="round"/>
-              <path d="M358 267q31 23 62 0" fill="none" stroke="#27313b" stroke-width="8" stroke-linecap="round"/>
-            </g>
-
-            <g class="open-eye">
-              <ellipse class="iris" cx="258" cy="267" rx="28" ry="24" fill="url(#irisGrad)"/>
-              <ellipse class="iris" cx="390" cy="267" rx="28" ry="24" fill="url(#irisGrad)"/>
-              <ellipse class="pupil ink" cx="258" cy="267" rx="8" ry="19"/>
-              <ellipse class="pupil ink" cx="390" cy="267" rx="8" ry="19"/>
-              <circle class="shine" cx="249" cy="257" r="5"/>
-              <circle class="shine" cx="381" cy="257" r="5"/>
-            </g>
-
-            <path class="nose" d="m324 300-13-8h26z"/>
-            <path d="M324 300q0 13-14 18M324 300q0 13 14 18" fill="none" stroke="#80514a" stroke-width="5" stroke-linecap="round"/>
-            <g opacity=".58" stroke="#715447" stroke-width="4" stroke-linecap="round">
-              <path d="M232 311h-76"/><path d="m231 324-72 17"/>
-              <path d="M416 311h76"/><path d="m417 324 72 17"/>
-            </g>
-          </svg>
+          <div class="progress"><i id="progressBar"></i></div>
         </div>
-
-        <div class="paw" aria-hidden="true">
-          <svg viewBox="0 0 210 120">
-            <defs><linearGradient id="pawGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f39255"/><stop offset="1" stop-color="#d86437"/></linearGradient></defs>
-            <path d="M25 76c0-36 35-60 88-60 51 0 78 19 78 45 0 30-29 43-84 43H52C35 104 25 94 25 76z" fill="url(#pawGrad)"/>
-            <ellipse cx="149" cy="74" rx="15" ry="11" fill="#ffd7aa"/>
-            <ellipse cx="176" cy="70" rx="12" ry="9" fill="#ffd7aa"/>
-          </svg>
-        </div>
-
-        <div class="fish-wrap" id="fish" role="button" tabindex="0" aria-label="Drag the fish out from under Miso's paw">
-          <svg class="fish" viewBox="0 0 240 120" aria-hidden="true">
-            <defs><linearGradient id="fishGrad" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff8177"/><stop offset="1" stop-color="#d64d4b"/></linearGradient></defs>
-            <path d="M53 60 11 22v76z" fill="#d34a48"/>
-            <path d="M49 61c35-49 112-47 155-4-42 49-120 52-155 4z" fill="url(#fishGrad)"/>
-            <path d="M108 29c21 10 35 22 44 34-12 13-27 22-46 30-12-21-12-43 2-64z" fill="#ffd19b" opacity=".65"/>
-            <circle cx="178" cy="52" r="6.5" fill="#25313c"/><circle cx="180" cy="50" r="2.2" fill="#fff"/>
-          </svg>
-        </div>
-
-        <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
       </div>
 
-      <div class="signal" id="signal">FREEZE!</div>
+      <div class="signal" id="signal">别动！</div>
       <div class="flash" id="flash"></div>
     </section>
 
     <footer class="bottom-bar">
-      <div class="hint" id="hint">Hold the fish and pull →</div>
-      <button class="feedback-link" id="feedbackLink" type="button">FEEDBACK</button>
+      <div class="hint" id="hint">按住小鱼，往右拖 →</div>
+      <button class="footer-link" id="leaderboardLink" type="button">全球榜</button>
+      <button class="footer-link" id="feedbackLink" type="button">反馈</button>
     </footer>
 
     <div class="overlay" id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
-      <section class="card">
-        <div class="result-face" id="resultFace">😾</div>
-        <h2 class="result-title" id="resultTitle">MISO SAW YOU.</h2>
-        <p class="result-sub" id="resultSub">One tiny move ended the run.</p>
+      <section class="card result-card">
+        <div class="result-cat-thumb"><img id="resultCatPhoto" alt="" /></div>
+        <div class="result-kicker" id="resultKicker">被抓现行</div>
+        <h2 class="result-title" id="resultTitle">猫咪发现你了。</h2>
+        <p class="result-sub" id="resultSub">就差一点。</p>
+
         <div class="result-grid">
-          <div class="stat"><b id="resultFish">0</b><span>fish stolen</span></div>
-          <div class="stat"><b id="resultBest">0</b><span>personal best</span></div>
-        </div>
-        <div class="actions">
-          <button class="btn primary" id="retryBtn" type="button">AGAIN</button>
-          <button class="btn secondary" id="challengeBtn" type="button">CHALLENGE</button>
-          <button class="btn accent" id="shareBtn" type="button">SHARE THE MOMENT</button>
+          <div class="stat"><b id="resultFish">0</b><span>本局偷鱼</span></div>
+          <div class="stat"><b id="resultBest">0</b><span>个人最佳</span></div>
+          <div class="stat"><b id="resultRank">--</b><span>今日全球排名</span></div>
         </div>
 
-        <div class="fairness">
-          <div class="fairness-label">How did that feel?</div>
+        <div class="actions">
+          <button class="btn primary" id="retryBtn" type="button">再来一局</button>
+          <button class="btn secondary" id="challengeBtn" type="button">挑战好友</button>
+          <button class="btn accent" id="shareBtn" type="button">分享战绩</button>
+          <button class="btn ghost" id="resultRankBtn" type="button">查看全球排行榜</button>
+        </div>
+
+        <div class="fairness" id="resultFairness">
+          <div class="fairness-label">这局难度感觉怎么样？</div>
           <div class="fairness-row">
-            <button class="fair-btn" data-fairness="too_easy" type="button">😴 Too easy</button>
-            <button class="fair-btn" data-fairness="fair" type="button">😼 Fair</button>
-            <button class="fair-btn" data-fairness="unfair" type="button">😾 Unfair</button>
+            <button class="fair-btn" data-fairness="too_easy" type="button">😴 太简单</button>
+            <button class="fair-btn" data-fairness="fair" type="button">😼 刚刚好</button>
+            <button class="fair-btn" data-fairness="unfair" type="button">😾 不公平</button>
           </div>
           <div class="feedback-form" id="resultFeedbackForm">
-            <textarea id="resultFeedbackText" maxlength="800" placeholder="One sentence helps us tune Miso…"></textarea>
-            <button class="feedback-submit" id="resultFeedbackSubmit" type="button">SEND FEEDBACK</button>
+            <textarea id="resultFeedbackText" maxlength="800" placeholder="可选：哪里让你觉得爽 / 烦 / 不公平？"></textarea>
+            <button class="feedback-submit" id="resultFeedbackSubmit" type="button">提交反馈</button>
           </div>
-          <div class="feedback-note" id="resultFeedbackNote">Thanks — Miso is taking notes.</div>
+          <div class="feedback-note" id="resultFeedbackNote">收到。下一版会用真实数据调。</div>
+        </div>
+      </section>
+    </div>
+
+    <div class="overlay" id="leaderboardOverlay" role="dialog" aria-modal="true" aria-labelledby="leaderboardTitle">
+      <section class="card leaderboard-card">
+        <button class="close-x" id="leaderboardClose" type="button" aria-label="关闭">×</button>
+        <div class="leaderboard-head">
+          <div>
+            <div class="result-kicker">GLOBAL</div>
+            <h2 id="leaderboardTitle">全球排行榜</h2>
+          </div>
+          <div class="player-name-box">
+            <label for="nicknameInput">我的昵称</label>
+            <input id="nicknameInput" maxlength="16" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="scope-tabs" id="scopeTabs">
+          <button class="scope-tab active" data-scope="today" type="button">今日</button>
+          <button class="scope-tab" data-scope="week" type="button">本周</button>
+          <button class="scope-tab" data-scope="all" type="button">总榜</button>
+        </div>
+
+        <div class="my-rank" id="myRank">还没有上榜，先去偷一条鱼。</div>
+        <div class="leaderboard-list" id="leaderboardList">
+          <div class="leaderboard-loading">正在读取全球成绩…</div>
         </div>
       </section>
     </div>
 
     <div class="overlay feedback-modal" id="feedbackOverlay" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
       <section class="card">
-        <button class="close-x" id="feedbackClose" type="button" aria-label="Close">×</button>
-        <h2 id="feedbackTitle">HELP TUNE MISO</h2>
-        <p>Was the game readable and fair? We store no IP address and no account is required.</p>
+        <button class="close-x" id="feedbackClose" type="button" aria-label="关闭">×</button>
+        <h2 id="feedbackTitle">帮我把它变得更上头</h2>
+        <p class="modal-copy">不需要账号。我们不保存你的 IP，只记录调游戏真正有用的数据。</p>
         <div class="fairness-row">
-          <button class="fair-btn" data-modal-fairness="too_easy" type="button">😴 Too easy</button>
-          <button class="fair-btn" data-modal-fairness="fair" type="button">😼 Fair</button>
-          <button class="fair-btn" data-modal-fairness="unfair" type="button">😾 Unfair</button>
+          <button class="fair-btn" data-modal-fairness="too_easy" type="button">😴 太简单</button>
+          <button class="fair-btn" data-modal-fairness="fair" type="button">😼 刚刚好</button>
+          <button class="fair-btn" data-modal-fairness="unfair" type="button">😾 不公平</button>
         </div>
         <div class="feedback-form show">
-          <textarea id="modalFeedbackText" maxlength="800" placeholder="What should feel better?"></textarea>
-          <button class="feedback-submit" id="modalFeedbackSubmit" type="button">SEND FEEDBACK</button>
+          <textarea id="modalFeedbackText" maxlength="800" placeholder="最想让我改哪一点？"></textarea>
+          <button class="feedback-submit" id="modalFeedbackSubmit" type="button">提交反馈</button>
         </div>
-        <div class="feedback-note" id="modalFeedbackNote">Thanks — received.</div>
+        <div class="feedback-note" id="modalFeedbackNote">谢谢，已经进入优化数据。</div>
       </section>
     </div>
 
@@ -177,13 +155,21 @@ import "../styles/game.css";
 
   <script>
     import { track } from "@vercel/analytics";
+    import { CATS, pickCat } from "../data/cats";
 
     const $ = (id: string) => document.getElementById(id) as HTMLElement;
     const game = $("game");
     const scene = $("scene");
-    const cat = $("cat");
-    const fish = $("fish");
-    const outZone = $("outZone");
+    const photoCard = $("photoCard");
+    const catPhoto = $("catPhoto") as HTMLImageElement;
+    const resultCatPhoto = $("resultCatPhoto") as HTMLImageElement;
+    const catName = $("catName");
+    const catStatus = $("catStatus");
+    const statusDot = $("statusDot");
+    const photoCredit = $("photoCredit") as HTMLAnchorElement;
+    const watchOverlay = $("watchOverlay");
+    const fish = $("fish") as HTMLButtonElement;
+    const escapeZone = $("escapeZone");
     const progressBar = $("progressBar");
     const signal = $("signal");
     const flash = $("flash");
@@ -194,95 +180,241 @@ import "../styles/game.css";
     const challengeChip = $("challenge");
     const fishCount = $("fishCount");
     const bestScore = $("bestScore");
+    const rankMetric = $("rankMetric");
     const resultOverlay = $("resultOverlay");
+    const leaderboardOverlay = $("leaderboardOverlay");
     const feedbackOverlay = $("feedbackOverlay");
     const resultTitle = $("resultTitle");
+    const resultKicker = $("resultKicker");
     const resultSub = $("resultSub");
     const resultFish = $("resultFish");
     const resultBest = $("resultBest");
-    const resultFace = $("resultFace");
+    const resultRank = $("resultRank");
+    const resultFairness = $("resultFairness");
+    const leaderboardList = $("leaderboardList");
+    const myRank = $("myRank");
+    const nicknameInput = $("nicknameInput") as HTMLInputElement;
 
     const params = new URLSearchParams(location.search);
     const beat = Math.max(0, Number(params.get("beat") || 0) || 0);
+    const challenger = (params.get("from") || "").slice(0, 16);
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const device = matchMedia("(pointer: coarse)").matches ? "touch" : "pointer";
 
-    function safeStorageGet(key: string) {
+    function safeGet(key: string) {
       try { return localStorage.getItem(key); } catch { return null; }
     }
-    function safeStorageSet(key: string, value: string) {
+    function safeSet(key: string, value: string) {
       try { localStorage.setItem(key, value); } catch {}
     }
 
-    let sessionId = safeStorageGet("dwm_session");
+    let sessionId = safeGet("cat_session_v2");
     if (!sessionId) {
       sessionId = (crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36)).replace(/[^a-zA-Z0-9_-]/g, "");
-      safeStorageSet("dwm_session", sessionId);
+      safeSet("cat_session_v2", sessionId);
     }
 
-    let variant = safeStorageGet("dwm_variant") || "";
-    if (!variant) {
-      variant = Math.random() < .5 ? "A" : "B";
-      safeStorageSet("dwm_variant", variant);
-    }
-
-    let best = Number(safeStorageGet("dwm_best") || 0) || 0;
+    let nickname = safeGet("cat_nickname") || ("猫友" + sessionId.slice(-4).toUpperCase());
+    nicknameInput.value = nickname;
+    let best = Number(safeGet("cat_best_v2") || 0) || 0;
     bestScore.textContent = String(best);
 
     if (beat > 0) {
-      challengeChip.textContent = "BEAT " + beat + " FISH";
+      challengeChip.textContent = (challenger ? challenger + " 挑战你：" : "好友挑战：") + "超过 " + beat + " 分";
       challengeChip.classList.add("show");
-      try { track("Challenge Open", { target: beat, variant }); } catch {}
     }
 
     type Phase = "sleeping" | "fake" | "warning" | "watching" | "attack";
+    type DifficultyConfig = {
+      label: string;
+      fakeChanceBase: number;
+      fakeChanceMax: number;
+      cueDelayMin: number;
+      cueDelayMax: number;
+      anticipationBase: number;
+      anticipationMin: number;
+      watchBase: number;
+      watchMin: number;
+      difficultySlope: number;
+      dragScaleTouch: number;
+      dragScalePointer: number;
+    };
+
+    const fallbackConfig: DifficultyConfig = {
+      label: "高压反应",
+      fakeChanceBase: 0.28,
+      fakeChanceMax: 0.46,
+      cueDelayMin: 720,
+      cueDelayMax: 1520,
+      anticipationBase: 420,
+      anticipationMin: 225,
+      watchBase: 900,
+      watchMin: 510,
+      difficultySlope: 0.07,
+      dragScaleTouch: 0.34,
+      dragScalePointer: 0.26,
+    };
+
+    let experimentKey = "difficulty_v2";
+    let experimentVersion = 1;
+    let variant = "A";
+    let config: DifficultyConfig = fallbackConfig;
+    let pendingExperiment: any = null;
+
     const state = {
       phase: "sleeping" as Phase,
-      fish: 0,
+      score: 0,
       progress: 0,
       drag: false,
       lastX: 0,
       started: false,
+      attempts: 0,
+      survivedLooks: 0,
       timer: 0 as unknown as number,
       watchTimer: 0 as unknown as number,
       watchStarted: 0,
-      attempts: 0,
-      survivedLooks: 0,
+      startedAt: 0,
+      firstInteractionSent: false,
+      currentCat: pickCat(),
+      runId: "",
+      runToken: "",
+      runPromise: null as Promise<any> | null,
       selectedFairness: "",
       modalFairness: "",
+      lastRanking: null as any,
     };
 
-    const captions = [
-      "Miso was absolutely pretending to sleep.",
-      "The eyes opened. Your hand did not get the memo.",
-      "One tiny move ended the heist.",
-      "You and Miso disagree on fish ownership.",
-      "That was almost criminally smooth.",
-    ];
+    const eventQueue: any[] = [];
+    let flushTimer = 0 as unknown as number;
 
-    function randomCaption() {
-      return captions[Math.floor(Math.random() * captions.length)] ?? "One tiny move ended the heist.";
+    function vercelTrack(name: string, data: Record<string, string | number | boolean> = {}) {
+      try { track(name, data); } catch {}
     }
 
-    function trackSafe(name: string, data: Record<string, string | number | boolean> = {}) {
-      try { track(name, { variant, device, ...data }); } catch {}
+    function queueEvent(eventName: string, payload: Record<string, any> = {}, flushNow = false) {
+      eventQueue.push({
+        eventName,
+        runId: state.runId || null,
+        score: state.score,
+        experimentKey,
+        variant,
+        catId: state.currentCat?.id || "",
+        challengeTarget: beat,
+        device,
+        payload,
+      });
+      vercelTrack(eventName, { variant, cat: state.currentCat?.id || "", score: state.score });
+
+      if (flushNow || eventQueue.length >= 5) {
+        void flushEvents(false);
+      } else {
+        clearTimeout(flushTimer);
+        flushTimer = window.setTimeout(() => void flushEvents(false), 4500);
+      }
     }
 
-    function vibrate(pattern: number | number[]) {
-      try { if ("vibrate" in navigator) navigator.vibrate(pattern); } catch {}
+    async function flushEvents(beacon: boolean) {
+      if (!eventQueue.length) return;
+      const events = eventQueue.splice(0, 40);
+      const body = JSON.stringify({ sessionId, events });
+      try {
+        if (beacon && navigator.sendBeacon) {
+          navigator.sendBeacon("/api/events", new Blob([body], { type: "application/json" }));
+          return;
+        }
+        await fetch("/api/events", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+          keepalive: true,
+        });
+      } catch {
+        // Analytics must never break gameplay.
+      }
     }
+
+    async function loadExperiment() {
+      try {
+        const response = await fetch("/api/bootstrap?session=" + encodeURIComponent(sessionId), { cache: "no-store" });
+        const data = await response.json();
+        if (!data?.ok || !data?.experiment?.config) return;
+        const next = data.experiment;
+        if (state.started) {
+          pendingExperiment = next;
+        } else {
+          experimentKey = next.key;
+          experimentVersion = next.version;
+          variant = next.variant;
+          config = { ...fallbackConfig, ...next.config };
+        }
+      } catch {}
+    }
+
+    function applyPendingExperiment() {
+      if (!pendingExperiment) return;
+      experimentKey = pendingExperiment.key;
+      experimentVersion = pendingExperiment.version;
+      variant = pendingExperiment.variant;
+      config = { ...fallbackConfig, ...pendingExperiment.config };
+      pendingExperiment = null;
+    }
+
+    function selectNewCat() {
+      const next = pickCat(state.currentCat?.id);
+      if (!next) return;
+      state.currentCat = next;
+      catPhoto.src = next.image;
+      catPhoto.style.objectPosition = next.objectPosition || "50% 50%";
+      catPhoto.alt = next.name + "，本局随机猫咪";
+      catName.textContent = next.name;
+      photoCredit.href = next.sourcePage;
+      photoCredit.textContent = "照片 · " + next.photographer;
+      resultCatPhoto.src = next.image;
+      preloadNextCat();
+    }
+
+    function preloadNextCat() {
+      const next = pickCat(state.currentCat?.id);
+      if (!next) return;
+      const image = new Image();
+      image.src = next.image;
+    }
+
+    catPhoto.addEventListener("error", () => {
+      queueEvent("image_error", { catId: state.currentCat?.id || "" });
+      const next = pickCat(state.currentCat?.id);
+      if (!next) return;
+      state.currentCat = next;
+      catPhoto.src = next.image;
+      catName.textContent = next.name;
+      photoCredit.href = next.sourcePage;
+      photoCredit.textContent = "照片 · " + next.photographer;
+    });
 
     function setPhase(phase: Phase) {
       state.phase = phase;
-      cat.dataset.state = phase;
+      photoCard.dataset.state = phase;
+      if (phase === "sleeping") {
+        catStatus.textContent = "正在放松警惕";
+        statusDot.className = "status-dot";
+      } else if (phase === "fake") {
+        catStatus.textContent = "它好像动了一下…";
+        statusDot.className = "status-dot amber";
+      } else if (phase === "warning") {
+        catStatus.textContent = "有动静";
+        statusDot.className = "status-dot amber";
+      } else if (phase === "watching") {
+        catStatus.textContent = "正在盯着你";
+        statusDot.className = "status-dot danger";
+      }
     }
 
     function setProgress(value: number) {
       state.progress = Math.max(0, Math.min(100, value));
       progressBar.style.setProperty("--p", state.progress + "%");
-      const maxTravel = Math.min(innerWidth * .39, 255);
+      const maxTravel = Math.min(photoCard.clientWidth * 0.58, 360);
       fish.style.setProperty("--travel", (state.progress / 100 * maxTravel) + "px");
-      outZone.classList.toggle("hot", state.progress > 80);
+      escapeZone.classList.toggle("hot", state.progress > 82);
     }
 
     function clearTimers() {
@@ -294,6 +426,15 @@ import "../styles/game.css";
       return min + Math.random() * (max - min);
     }
 
+    function pressure() {
+      return 1 - Math.exp(-Math.max(0, state.score) * Math.max(0.02, config.difficultySlope));
+    }
+
+    function currentFakeChance() {
+      const p = pressure();
+      return config.fakeChanceBase + (config.fakeChanceMax - config.fakeChanceBase) * p;
+    }
+
     let audio: AudioContext | null = null;
     function ensureAudio() {
       try {
@@ -303,7 +444,7 @@ import "../styles/game.css";
       } catch { return null; }
     }
 
-    function tone(freq: number, duration = .07, type: OscillatorType = "sine", gain = .026) {
+    function tone(freq: number, duration = 0.07, type: OscillatorType = "sine", gain = 0.026) {
       const ctx = ensureAudio();
       if (!ctx) return;
       const oscillator = ctx.createOscillator();
@@ -311,49 +452,126 @@ import "../styles/game.css";
       oscillator.type = type;
       oscillator.frequency.value = freq;
       amp.gain.setValueAtTime(gain, ctx.currentTime);
-      amp.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + duration);
+      amp.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
       oscillator.connect(amp).connect(ctx.destination);
       oscillator.start();
       oscillator.stop(ctx.currentTime + duration);
     }
 
-    function difficulty() {
-      return Math.min(.52, state.fish * .045);
+    function vibrate(pattern: number | number[]) {
+      try { if ("vibrate" in navigator) navigator.vibrate(pattern); } catch {}
+    }
+
+    async function createServerRun() {
+      try {
+        const response = await fetch("/api/run/start", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            nickname,
+            catId: state.currentCat?.id || "",
+            variant,
+            experimentKey,
+            challengeTarget: beat,
+            device,
+          }),
+        });
+        const data = await response.json();
+        if (data?.ok) {
+          state.runId = data.runId;
+          state.runToken = data.token;
+        }
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
+    async function finishServerRun() {
+      if (state.runPromise) await state.runPromise;
+      if (!state.runId || !state.runToken) return null;
+
+      try {
+        const response = await fetch("/api/run/finish", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            runId: state.runId,
+            token: state.runToken,
+            sessionId,
+            nickname,
+            score: state.score,
+          }),
+        });
+        const data = await response.json();
+        if (data?.ok) {
+          state.lastRanking = data.ranking;
+          const today = data.ranking?.today;
+          if (today?.rank) {
+            resultRank.textContent = "#" + today.rank;
+            rankMetric.textContent = "#" + today.rank;
+          }
+        }
+        return data;
+      } catch {
+        return null;
+      }
     }
 
     function startRun() {
       if (state.started) return;
       state.started = true;
+      state.startedAt = performance.now();
       state.attempts++;
-      trackSafe("Game Start", { challenge: beat, attempt: state.attempts });
-      headline.textContent = "STEAL THE FISH.";
-      subline.textContent = "When the eyes open: don't move.";
-      hint.textContent = "Hold + pull →";
+      state.runId = "";
+      state.runToken = "";
+      state.lastRanking = null;
+      state.runPromise = createServerRun();
+      queueEvent("game_start", { attempt: state.attempts, experimentVersion }, true);
+      headline.textContent = "继续偷。";
+      subline.textContent = "看到“别动”就马上停手。";
+      hint.textContent = "越往后越难，没有终点。";
       scheduleCue();
     }
 
     function scheduleCue() {
       clearTimers();
       if (!state.started || state.phase === "attack") return;
-      const d = difficulty();
-      const fakeChance = variant === "A" ? .30 : .43;
-      const delay = rand(980, 1900) - d * 650;
+
+      const p = pressure();
+      const minDelay = Math.max(520, config.cueDelayMin * (1 - 0.23 * p));
+      const maxDelay = Math.max(minDelay + 180, config.cueDelayMax * (1 - 0.31 * p));
       state.timer = window.setTimeout(() => {
-        Math.random() < fakeChance ? fakeCue() : realCue();
-      }, delay);
+        Math.random() < currentFakeChance() ? fakeCue() : realCue();
+      }, rand(minDelay, maxDelay));
     }
 
     function fakeCue() {
       if (state.phase === "attack") return;
       setPhase("fake");
-      live.textContent = "Miso twitched.";
-      trackSafe("Fake Cue", { score: state.fish });
+      queueEvent("fake_cue", { pressure: Number(pressure().toFixed(3)) });
+      tone(360, 0.04, "sine", 0.012);
+      const hold = state.score >= 15 ? rand(240, 380) : rand(320, 470);
+
       state.timer = window.setTimeout(() => {
-        if (state.phase === "fake") {
+        if (state.phase !== "fake") return;
+
+        if (state.score >= 12 && Math.random() < 0.22) {
+          // A second bluff increases tension without ever violating the real danger cue.
+          photoCard.classList.add("double-bluff");
+          window.setTimeout(() => photoCard.classList.remove("double-bluff"), 260);
+          state.timer = window.setTimeout(() => {
+            if (state.phase === "fake") {
+              setPhase("sleeping");
+              scheduleCue();
+            }
+          }, 260);
+        } else {
           setPhase("sleeping");
           scheduleCue();
         }
-      }, variant === "A" ? 430 : 360);
+      }, hold);
     }
 
     function realCue() {
@@ -361,39 +579,49 @@ import "../styles/game.css";
       setPhase("warning");
       signal.textContent = "…";
       signal.className = "signal show";
-      tone(430, .05, "sine", .018);
-      const d = difficulty();
-      const anticipation = Math.max(300, (variant === "A" ? 520 : 445) - state.fish * 14);
+      tone(430, 0.045, "sine", 0.018);
+
+      const p = pressure();
+      const anticipation = Math.max(
+        config.anticipationMin,
+        config.anticipationBase * (1 - 0.54 * p),
+      );
 
       state.watchTimer = window.setTimeout(() => {
         if (state.phase === "attack") return;
         setPhase("watching");
         state.watchStarted = performance.now();
-        signal.textContent = "FREEZE!";
+        signal.textContent = "别动！";
         signal.className = "signal show danger";
-        live.textContent = "Miso is watching. Stop moving.";
-        tone(245, .095, "triangle", .025);
-        vibrate(14);
-        trackSafe("Eyes Open", { score: state.fish });
+        watchOverlay.classList.add("show");
+        live.textContent = "猫咪正在盯着你，立刻停止移动。";
+        tone(230, 0.095, "triangle", 0.03);
+        vibrate(16);
+        queueEvent("eyes_open", { anticipationMs: Math.round(anticipation) });
 
-        const watchWindow = Math.max(620, 1120 - d * 550 + rand(-100, 170));
+        const watchWindow = Math.max(
+          config.watchMin,
+          config.watchBase * (1 - 0.41 * p) + rand(-70, 130),
+        );
+
         state.watchTimer = window.setTimeout(() => {
           if (state.phase === "watching") {
             state.survivedLooks++;
             setPhase("sleeping");
-            signal.textContent = "SAFE";
+            watchOverlay.classList.remove("show");
+            signal.textContent = "安全";
             signal.className = "signal show safe";
-            live.textContent = "Safe. Keep pulling.";
-            tone(660, .06, "sine", .018);
-            trackSafe("Look Survived", { score: state.fish, survived: state.survivedLooks });
-            window.setTimeout(() => { signal.className = "signal"; }, 300);
+            tone(680, 0.055, "sine", 0.018);
+            vibrate(7);
+            queueEvent("look_survived", { survived: state.survivedLooks });
+            window.setTimeout(() => { signal.className = "signal"; }, 280);
             scheduleCue();
           }
         }, watchWindow);
       }, anticipation);
     }
 
-    function die(movement: number) {
+    async function die(movement: number) {
       if (state.phase === "attack") return;
       clearTimers();
       state.drag = false;
@@ -401,104 +629,137 @@ import "../styles/game.css";
       setPhase("attack");
       fish.classList.remove("dragging");
       signal.className = "signal";
+      watchOverlay.classList.remove("show");
       flash.classList.add("go");
       game.classList.add("shake");
-      tone(92, .32, "sawtooth", .052);
-      vibrate([28, 24, 70]);
-      trackSafe("Run End", {
-        score: state.fish,
+      tone(88, 0.32, "sawtooth", 0.052);
+      vibrate([30, 22, 75]);
+
+      queueEvent("run_end", {
         latencyMs: Math.round(latency),
         movement: Math.round(movement * 10) / 10,
         survived: state.survivedLooks,
-      });
+        durationMs: Math.round(performance.now() - state.startedAt),
+      }, true);
 
-      if (state.fish > best) {
-        best = state.fish;
-        safeStorageSet("dwm_best", String(best));
+      if (state.score > best) {
+        best = state.score;
+        safeSet("cat_best_v2", String(best));
         bestScore.textContent = String(best);
       }
 
-      window.setTimeout(() => {
+      const rankingPromise = finishServerRun();
+
+      window.setTimeout(async () => {
         game.classList.remove("shake");
         flash.classList.remove("go");
         showResult(latency);
-      }, reducedMotion ? 60 : 720);
+        await rankingPromise;
+      }, reducedMotion ? 60 : 650);
     }
 
     function showResult(latency: number) {
-      resultFish.textContent = String(state.fish);
+      resultFish.textContent = String(state.score);
       resultBest.textContent = String(best);
-      resultFace.textContent = state.fish >= 5 ? "🙀" : "😾";
+      resultRank.textContent = "--";
+      resultCatPhoto.src = state.currentCat?.image || "";
 
-      if (beat > 0 && state.fish >= beat) {
-        resultTitle.textContent = "YOU BEAT THEM.";
-        resultSub.textContent = "Challenge cleared. Send something harder back.";
-        trackSafe("Challenge Beat", { target: beat, score: state.fish });
+      if (beat > 0 && state.score >= beat) {
+        resultKicker.textContent = "挑战成功";
+        resultTitle.textContent = "你赢了。";
+        resultSub.textContent = "超过了 " + beat + " 分，把更难的挑战发回去。";
+        queueEvent("challenge_beat", { target: beat });
       } else {
-        resultTitle.textContent = "MISO SAW YOU.";
+        resultKicker.textContent = "被抓现行";
+        resultTitle.textContent = (state.currentCat?.name || "猫咪") + "发现你了。";
         if (latency > 0 && latency < 1000) {
-          resultSub.textContent = Math.round(latency) + " ms after eye contact. " + randomCaption();
+          resultSub.textContent = "你在它盯过来后 " + Math.round(latency) + "ms 还动了一下。";
         } else {
-          resultSub.textContent = randomCaption();
+          resultSub.textContent = state.score >= 10 ? "已经很接近高手区了，再来一局。" : "这局不算，再来。";
         }
       }
 
+      const askFeedback = state.attempts >= 2 && (state.attempts % 3 === 0 || state.score === 0 || state.score >= 10);
+      resultFairness.classList.toggle("show", askFeedback);
       resultOverlay.classList.add("show");
     }
 
     function fishStolen() {
       clearTimers();
-      state.fish++;
-      fishCount.textContent = String(state.fish);
+      state.score++;
+      fishCount.textContent = String(state.score);
       setProgress(0);
       setPhase("sleeping");
       signal.textContent = "+1";
       signal.className = "signal show safe";
-      tone(760, .06, "sine", .024);
-      window.setTimeout(() => tone(980, .08, "sine", .018), 65);
+      tone(770, 0.055, "sine", 0.024);
+      window.setTimeout(() => tone(1030, 0.075, "sine", 0.018), 65);
       vibrate(8);
-      trackSafe("Fish Stolen", { score: state.fish });
+      queueEvent("fish_stolen", { pressure: Number(pressure().toFixed(3)) });
 
-      headline.textContent = state.fish === 1 ? "ONE DOWN." : state.fish >= 5 ? "MISO KNOWS." : "KEEP GOING.";
-      subline.textContent = state.fish >= 5 ? "The timing is getting tighter." : "The next fish won't be as easy.";
-      window.setTimeout(() => { signal.className = "signal"; }, 330);
+      if (state.score === 5) {
+        headline.textContent = "开始认真了。";
+        subline.textContent = "从现在起，假动作会越来越多。";
+      } else if (state.score === 10) {
+        headline.textContent = "进入高压区。";
+        subline.textContent = "它会骗你停手。别被假动作带走。";
+      } else if (state.score === 20) {
+        headline.textContent = "高手区。";
+        subline.textContent = "之后不会封顶，只会越来越紧张。";
+      } else if (state.score > 20) {
+        headline.textContent = "继续。";
+        subline.textContent = "全球榜正在等你。";
+      }
+
+      window.setTimeout(() => { signal.className = "signal"; }, 300);
       scheduleCue();
     }
 
     function resetRun() {
       clearTimers();
+      applyPendingExperiment();
       state.phase = "sleeping";
-      state.fish = 0;
+      state.score = 0;
       state.progress = 0;
       state.drag = false;
       state.lastX = 0;
       state.started = false;
       state.survivedLooks = 0;
       state.selectedFairness = "";
+      state.runId = "";
+      state.runToken = "";
+      state.runPromise = null;
       fishCount.textContent = "0";
-      setProgress(0);
-      setPhase("sleeping");
       resultOverlay.classList.remove("show");
       signal.className = "signal";
-      document.querySelectorAll("[data-fairness]").forEach(el => el.classList.remove("selected"));
+      watchOverlay.classList.remove("show");
+      resultFairness.classList.remove("show");
       $("resultFeedbackForm").classList.remove("show");
       $("resultFeedbackNote").classList.remove("show");
       (document.getElementById("resultFeedbackText") as HTMLTextAreaElement).value = "";
-      headline.textContent = "STEAL THE FISH.";
-      subline.textContent = "Drag it slowly. Freeze the instant Miso opens his eyes.";
-      hint.textContent = "Hold the fish and pull →";
-      trackSafe("Retry", { previousScore: Number(resultFish.textContent || 0) });
+      document.querySelectorAll("[data-fairness]").forEach((el) => el.classList.remove("selected"));
+      headline.textContent = "把鱼偷走。";
+      subline.textContent = "拖住小鱼往右拉。猫咪盯着你时，一毫米都别动。";
+      hint.textContent = "按住小鱼，往右拖 →";
+      selectNewCat();
+      setProgress(0);
+      setPhase("sleeping");
+      queueEvent("retry", { previousScore: Number(resultFish.textContent || 0) });
     }
 
     fish.addEventListener("pointerdown", (event: PointerEvent) => {
       event.preventDefault();
-      startRun();
       ensureAudio();
+      if (!state.firstInteractionSent) {
+        state.firstInteractionSent = true;
+        queueEvent("first_interaction", {}, true);
+      }
+      startRun();
       state.drag = true;
       state.lastX = event.clientX;
       fish.setPointerCapture?.(event.pointerId);
       fish.classList.add("dragging");
-      tone(355, .04, "sine", .012);
+      tone(350, 0.035, "sine", 0.011);
     });
 
     fish.addEventListener("pointermove", (event: PointerEvent) => {
@@ -506,16 +767,17 @@ import "../styles/game.css";
       event.preventDefault();
       const dx = event.clientX - state.lastX;
       state.lastX = event.clientX;
-      if (Math.abs(dx) < .7) return;
+      if (Math.abs(dx) < 0.65) return;
 
-      if (state.phase === "watching" && Math.abs(dx) > 2.4) {
-        die(Math.abs(dx));
+      const movementThreshold = device === "touch" ? 2.6 : 1.8;
+      if (state.phase === "watching" && Math.abs(dx) > movementThreshold) {
+        void die(Math.abs(dx));
         return;
       }
 
       if (state.phase === "sleeping" || state.phase === "fake" || state.phase === "warning") {
-        const forwardScale = innerWidth < 700 ? .30 : .23;
-        setProgress(state.progress + (dx > 0 ? dx * forwardScale : dx * .08));
+        const scale = device === "touch" ? config.dragScaleTouch : config.dragScalePointer;
+        setProgress(state.progress + (dx > 0 ? dx * scale : dx * 0.07));
         if (state.progress >= 100) {
           state.drag = false;
           fish.classList.remove("dragging");
@@ -534,107 +796,204 @@ import "../styles/game.css";
     scene.addEventListener("pointermove", (event: PointerEvent) => {
       if (reducedMotion || state.drag) return;
       const rect = scene.getBoundingClientRect();
-      const x = (event.clientX - rect.left) / rect.width - .5;
-      const y = (event.clientY - rect.top) / rect.height - .5;
-      scene.style.setProperty("--tilt-x", (x * 1.5) + "deg");
-      scene.style.setProperty("--tilt-y", (-y * 1.2) + "deg");
+      const x = (event.clientX - rect.left) / rect.width - 0.5;
+      const y = (event.clientY - rect.top) / rect.height - 0.5;
+      scene.style.setProperty("--tilt-x", (x * 1.3) + "deg");
+      scene.style.setProperty("--tilt-y", (-y * 1.0) + "deg");
     });
     scene.addEventListener("pointerleave", () => {
       scene.style.setProperty("--tilt-x", "0deg");
       scene.style.setProperty("--tilt-y", "0deg");
     });
 
-    $("retryBtn").addEventListener("click", resetRun);
-
     function challengeUrl() {
       const url = new URL(location.href);
       url.search = "";
-      url.searchParams.set("beat", String(Math.max(1, state.fish)));
+      url.searchParams.set("beat", String(Math.max(1, state.score)));
+      url.searchParams.set("from", nickname);
       return url.toString();
     }
+
+    $("retryBtn").addEventListener("click", resetRun);
 
     $("challengeBtn").addEventListener("click", async () => {
       const url = challengeUrl();
       try {
         await navigator.clipboard.writeText(url);
-        $("challengeBtn").textContent = "COPIED ✓";
-        window.setTimeout(() => { $("challengeBtn").textContent = "CHALLENGE"; }, 1300);
+        $("challengeBtn").textContent = "链接已复制 ✓";
+        window.setTimeout(() => { $("challengeBtn").textContent = "挑战好友"; }, 1300);
       } catch {
-        window.prompt("Challenge link", url);
+        window.prompt("复制挑战链接", url);
       }
-      trackSafe("Challenge Copy", { score: state.fish });
+      queueEvent("challenge_copy", { target: state.score }, true);
     });
 
-    async function shareCard() {
+    async function buildShareCard() {
       const canvas = document.createElement("canvas");
       canvas.width = 1080;
       canvas.height = 1350;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#f3eadc";
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("canvas");
+
+      ctx.fillStyle = "#f4eadf";
       ctx.fillRect(0, 0, 1080, 1350);
 
-      const gradient = ctx.createRadialGradient(540, 515, 20, 540, 515, 350);
-      gradient.addColorStop(0, "#f49b58");
-      gradient.addColorStop(1, "#d76236");
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(540, 510, 300, 0, Math.PI * 2);
-      ctx.fill();
+      let drewPhoto = false;
+      try {
+        if (catPhoto.complete && catPhoto.naturalWidth) {
+          const ratio = Math.max(1080 / catPhoto.naturalWidth, 760 / catPhoto.naturalHeight);
+          const w = catPhoto.naturalWidth * ratio;
+          const h = catPhoto.naturalHeight * ratio;
+          ctx.drawImage(catPhoto, (1080 - w) / 2, 0, w, h);
+          drewPhoto = true;
+        }
+      } catch {}
 
-      ctx.fillStyle = "#ffd6ab";
-      ctx.beginPath();
-      ctx.moveTo(324, 343); ctx.lineTo(394, 185); ctx.lineTo(465, 350); ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(615, 350); ctx.lineTo(687, 185); ctx.lineTo(756, 343); ctx.fill();
+      if (!drewPhoto) {
+        const gradient = ctx.createLinearGradient(0, 0, 1080, 760);
+        gradient.addColorStop(0, "#e7a267");
+        gradient.addColorStop(1, "#b85d3e");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1080, 760);
+        ctx.font = "220px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("😼", 540, 470);
+      }
 
-      ctx.fillStyle = "#25313c";
-      ctx.beginPath(); ctx.ellipse(438, 498, 27, 36, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(642, 498, 27, 36, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(429, 486, 6, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(633, 486, 6, 0, Math.PI * 2); ctx.fill();
-
-      ctx.fillStyle = "#9c5550";
-      ctx.beginPath(); ctx.moveTo(540, 564); ctx.lineTo(517, 548); ctx.lineTo(563, 548); ctx.fill();
+      const fade = ctx.createLinearGradient(0, 520, 0, 860);
+      fade.addColorStop(0, "rgba(244,234,223,0)");
+      fade.addColorStop(1, "#f4eadf");
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, 500, 1080, 380);
 
       ctx.fillStyle = "#18212b";
       ctx.textAlign = "center";
-      ctx.font = "900 58px system-ui";
-      ctx.fillText("DON'T WAKE MISO", 540, 105);
-      ctx.font = "1000 168px system-ui";
-      ctx.fillText(String(state.fish), 540, 1008);
+      ctx.font = "900 56px system-ui";
+      ctx.fillText("别吵醒猫咪", 540, 890);
+      ctx.font = "1000 178px system-ui";
+      ctx.fillText(String(state.score), 540, 1080);
       ctx.font = "900 42px system-ui";
-      ctx.fillText("FISH STOLEN", 540, 1072);
-      ctx.font = "800 31px system-ui";
-      ctx.fillStyle = "rgba(24,33,43,.62)";
-      ctx.fillText("Can you beat me without waking Miso?", 540, 1160);
-      ctx.font = "800 27px system-ui";
+      ctx.fillText("条鱼 · 你能超过我吗？", 540, 1140);
+      ctx.font = "800 28px system-ui";
+      ctx.fillStyle = "rgba(24,33,43,.58)";
       ctx.fillText("cat.fde.fan", 540, 1240);
 
       return await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("canvas")), "image/png", .92);
+        try {
+          canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("blob")), "image/png", 0.92);
+        } catch (error) {
+          reject(error);
+        }
       });
     }
 
     $("shareBtn").addEventListener("click", async () => {
+      queueEvent("share_open", { score: state.score });
       const url = challengeUrl();
-      const text = "I stole " + state.fish + " fish before Miso caught me. Can you beat me?";
+      const text = "我在《别吵醒猫咪》偷了 " + state.score + " 条鱼，你能超过我吗？";
       try {
-        const blob = await shareCard();
-        const file = new File([blob], "dont-wake-miso.png", { type: "image/png" });
+        const blob = await buildShareCard();
+        const file = new File([blob], "别吵醒猫咪.png", { type: "image/png" });
         if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ title: "Don't Wake Miso", text, url, files: [file] });
+          await navigator.share({ title: "别吵醒猫咪", text, url, files: [file] });
         } else if (navigator.share) {
-          await navigator.share({ title: "Don't Wake Miso", text, url });
+          await navigator.share({ title: "别吵醒猫咪", text, url });
         } else {
           await navigator.clipboard.writeText(text + " " + url);
-          $("shareBtn").textContent = "LINK COPIED ✓";
-          window.setTimeout(() => { $("shareBtn").textContent = "SHARE THE MOMENT"; }, 1400);
+          $("shareBtn").textContent = "挑战链接已复制 ✓";
+          window.setTimeout(() => { $("shareBtn").textContent = "分享战绩"; }, 1400);
         }
-        trackSafe("Share", { score: state.fish });
+        queueEvent("share_complete", { score: state.score }, true);
       } catch (error: any) {
-        if (error?.name !== "AbortError") trackSafe("Share Error");
+        if (error?.name !== "AbortError") {
+          try {
+            await navigator.clipboard.writeText(text + " " + url);
+            $("shareBtn").textContent = "挑战链接已复制 ✓";
+            window.setTimeout(() => { $("shareBtn").textContent = "分享战绩"; }, 1400);
+            queueEvent("share_complete", { fallback: true }, true);
+          } catch {}
+        }
       }
+    });
+
+    async function loadLeaderboard(scope = "today") {
+      queueEvent("leaderboard_scope", { scope });
+      leaderboardList.innerHTML = '<div class="leaderboard-loading">正在读取全球成绩…</div>';
+      try {
+        const response = await fetch("/api/leaderboard?scope=" + encodeURIComponent(scope) + "&session=" + encodeURIComponent(sessionId) + "&limit=50", { cache: "no-store" });
+        const data = await response.json();
+        if (!data?.ok) throw new Error("leaderboard");
+
+        if (data.me?.rank) {
+          myRank.textContent = "你的排名：#" + data.me.rank + " · " + data.me.score + " 分 · 共 " + data.me.players + " 位玩家";
+          if (scope === "today") rankMetric.textContent = "#" + data.me.rank;
+        } else {
+          myRank.textContent = "还没有上榜，先去偷一条鱼。";
+        }
+
+        if (!data.entries?.length) {
+          leaderboardList.innerHTML = '<div class="leaderboard-loading">今天还没人上榜，你可以拿第一个。</div>';
+          return;
+        }
+
+        leaderboardList.innerHTML = "";
+        for (const entry of data.entries) {
+          const row = document.createElement("div");
+          row.className = "leaderboard-row";
+          if (data.me && entry.rank === data.me.rank && entry.score === data.me.score) row.classList.add("me");
+
+          const rank = document.createElement("strong");
+          rank.className = "lb-rank";
+          rank.textContent = entry.rank <= 3 ? ["🥇","🥈","🥉"][entry.rank - 1] : "#" + entry.rank;
+
+          const person = document.createElement("div");
+          person.className = "lb-person";
+          const name = document.createElement("b");
+          name.textContent = (entry.flag ? entry.flag + " " : "") + entry.nickname;
+          const cat = document.createElement("small");
+          const catMeta = CATS.find((item) => item.id === entry.catId);
+          cat.textContent = catMeta ? "遇到 " + catMeta.name : "全球玩家";
+          person.append(name, cat);
+
+          const score = document.createElement("b");
+          score.className = "lb-score";
+          score.textContent = entry.score + " 鱼";
+
+          row.append(rank, person, score);
+          leaderboardList.appendChild(row);
+        }
+      } catch {
+        leaderboardList.innerHTML = '<div class="leaderboard-loading">排行榜暂时开小差了，稍后再试。</div>';
+      }
+    }
+
+    function openLeaderboard() {
+      leaderboardOverlay.classList.add("show");
+      queueEvent("leaderboard_open", {}, true);
+      void loadLeaderboard(document.querySelector(".scope-tab.active")?.getAttribute("data-scope") || "today");
+    }
+
+    $("rankButton").addEventListener("click", openLeaderboard);
+    $("leaderboardLink").addEventListener("click", openLeaderboard);
+    $("resultRankBtn").addEventListener("click", () => {
+      resultOverlay.classList.remove("show");
+      openLeaderboard();
+    });
+    $("leaderboardClose").addEventListener("click", () => leaderboardOverlay.classList.remove("show"));
+
+    document.querySelectorAll<HTMLElement>(".scope-tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll(".scope-tab").forEach((el) => el.classList.remove("active"));
+        button.classList.add("active");
+        void loadLeaderboard(button.dataset.scope || "today");
+      });
+    });
+
+    nicknameInput.addEventListener("change", () => {
+      const cleaned = nicknameInput.value.trim().replace(/[^\p{L}\p{N}_·\-\s]/gu, "").slice(0, 16) || ("猫友" + sessionId.slice(-4).toUpperCase());
+      nickname = cleaned;
+      nicknameInput.value = cleaned;
+      safeSet("cat_nickname", cleaned);
     });
 
     async function sendFeedback(fairness: string, message: string, noteId: string) {
@@ -646,29 +1005,31 @@ import "../styles/game.css";
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             sessionId,
+            runId: state.runId || null,
             fairness,
             message,
-            score: state.fish,
+            score: state.score,
             challengeTarget: beat,
+            experimentKey,
             variant,
+            catId: state.currentCat?.id || "",
             locale: navigator.language || "",
             device,
           }),
         });
         if (!response.ok) throw new Error("feedback");
-        note.textContent = "Thanks — Miso is taking notes.";
+        note.textContent = "收到。下一版会用真实数据调。";
         note.classList.add("show");
-        trackSafe("Feedback Submitted", { fairness, score: state.fish });
+        queueEvent("feedback_submitted", { fairness }, true);
       } catch {
-        note.textContent = "Couldn't send it this time. Please try again.";
-        note.style.color = "#b54d42";
+        note.textContent = "这次没发出去，稍后再试。";
         note.classList.add("show");
       }
     }
 
-    document.querySelectorAll<HTMLElement>("[data-fairness]").forEach(button => {
+    document.querySelectorAll<HTMLElement>("[data-fairness]").forEach((button) => {
       button.addEventListener("click", () => {
-        document.querySelectorAll("[data-fairness]").forEach(el => el.classList.remove("selected"));
+        document.querySelectorAll("[data-fairness]").forEach((el) => el.classList.remove("selected"));
         button.classList.add("selected");
         state.selectedFairness = button.dataset.fairness || "";
         $("resultFeedbackForm").classList.add("show");
@@ -683,13 +1044,13 @@ import "../styles/game.css";
 
     $("feedbackLink").addEventListener("click", () => {
       feedbackOverlay.classList.add("show");
-      trackSafe("Feedback Open");
+      queueEvent("feedback_open");
     });
     $("feedbackClose").addEventListener("click", () => feedbackOverlay.classList.remove("show"));
 
-    document.querySelectorAll<HTMLElement>("[data-modal-fairness]").forEach(button => {
+    document.querySelectorAll<HTMLElement>("[data-modal-fairness]").forEach((button) => {
       button.addEventListener("click", () => {
-        document.querySelectorAll("[data-modal-fairness]").forEach(el => el.classList.remove("selected"));
+        document.querySelectorAll("[data-modal-fairness]").forEach((el) => el.classList.remove("selected"));
         button.classList.add("selected");
         state.modalFairness = button.dataset.modalFairness || "";
       });
@@ -698,7 +1059,7 @@ import "../styles/game.css";
     $("modalFeedbackSubmit").addEventListener("click", async () => {
       const message = (document.getElementById("modalFeedbackText") as HTMLTextAreaElement).value;
       await sendFeedback(state.modalFairness || "fair", message, "modalFeedbackNote");
-      window.setTimeout(() => feedbackOverlay.classList.remove("show"), 900);
+      window.setTimeout(() => feedbackOverlay.classList.remove("show"), 850);
     });
 
     document.addEventListener("visibilitychange", () => {
@@ -707,10 +1068,27 @@ import "../styles/game.css";
         state.drag = false;
       } else if (!document.hidden && state.started && state.phase !== "attack") {
         setPhase("sleeping");
+        watchOverlay.classList.remove("show");
         scheduleCue();
       }
     });
 
+    window.addEventListener("pagehide", () => {
+      queueEvent("page_hide", {
+        attempts: state.attempts,
+        best,
+        activeScore: state.score,
+        sessionMs: Math.round(performance.now()),
+      });
+      void flushEvents(true);
+    });
+
     window.addEventListener("resize", () => setProgress(state.progress));
+
+    selectNewCat();
+    setPhase("sleeping");
+    queueEvent("page_view", { challenge: beat }, true);
+    if (beat > 0) queueEvent("challenge_open", { target: beat, from: challenger }, true);
+    void loadExperiment();
   </script>
 </BaseLayout>
