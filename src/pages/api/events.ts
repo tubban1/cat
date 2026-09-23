@@ -53,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     await getDbPool().query(
-      \`insert into cat_events
+      `insert into cat_events
         (session_id, run_id, event_name, score, experiment_key, experiment_variant,
          cat_id, challenge_target, country, device, payload)
        select
@@ -78,7 +78,7 @@ export const POST: APIRoute = async ({ request }) => {
          challenge_target integer,
          device text,
          payload jsonb
-       )\`,
+       )`,
       [sessionId, country, JSON.stringify(rows)],
     );
     return json({ ok: true, accepted: rows.length }, 201);
