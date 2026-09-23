@@ -221,6 +221,11 @@ jobs:
           done
           echo "ready=$READY" >> "$GITHUB_OUTPUT"
           echo "Custom domain ready: $READY"
+          if [ "$READY" != "true" ]; then
+            echo "Production health did not reach ok=true and dbConfigured=true."
+            cat /tmp/custom-health.json 2>/dev/null || true
+            exit 1
+          fi
           set -e
 
       - name: Release summary
