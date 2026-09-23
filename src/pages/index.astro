@@ -1004,12 +1004,90 @@ import "../styles/game.css";
       });
     });
 
-    nicknameInput.addEventListener("change", () => {
-      const cleaned = nicknameInput.value.trim().replace(/[^\p{L}\p{N}_·\-\s]/gu, "").slice(0, 16) || ("猫友" + sessionId.slice(-4).toUpperCase());
+    function cleanNickname(value: string) {
+      return value.trim()
+        .replace(/[^\p{L}\p{N}_·\-\s]/gu, "")
+        .replace(/\s+/g, " ")
+        .slice(0, 16)
+        || ("猫友" + sessionId.slice(-4).toUpperCase());
+    }
+
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/profile?session=" + encodeURIComponent(sessionId), { cache: "no-store" });
+        const data = await response.json();
+        if (data?.ok && data?.profile?.nickname) {
+          nickname = cleanNickname(data.profile.nickname);
+          nicknameInput.value = nickname;
+          safeSet("cat_nickname", nickname);
+          nicknameDirty = false;
+          nicknameStatus.textContent = "已同步昵称：" + nickname;
+          nicknameStatus.className = "nickname-status saved";
+        }
+      } catch {
+        nicknameStatus.textContent = "当前使用本机昵称";
+      }
+    }
+
+    async function saveNickname(showSuccess = true) {
+      const cleaned = cleanNickname(nicknameInput.value);
       nickname = cleaned;
       nicknameInput.value = cleaned;
       safeSet("cat_nickname", cleaned);
+      nicknameDirty = false;
+
+      nicknameSave.disabled = true;
+      nicknameSave.textContent = "保存中";
+      nicknameStatus.textContent = "正在同步…";
+      nicknameStatus.className = "nickname-status";
+
+      try {
+        const response = await fetch("/api/profile", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId, nickname: cleaned }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.ok) throw new Error("profile");
+
+        nickname = cleanNickname(data.nickname || cleaned);
+        nicknameInput.value = nickname;
+        safeSet("cat_nickname", nickname);
+        nicknameStatus.textContent = showSuccess ? "已保存 ✓ 排行榜昵称也已更新" : "已保存";
+        nicknameStatus.className = "nickname-status saved";
+        nicknameSave.textContent = "已保存";
+        queueEvent("nickname_saved", { length: nickname.length }, true);
+        window.setTimeout(() => { nicknameSave.textContent = "保存"; }, 1200);
+        return true;
+      } catch {
+        nicknameStatus.textContent = "已保存在本机，云端同步失败，请稍后重试";
+        nicknameStatus.className = "nickname-status error";
+        nicknameSave.textContent = "重试";
+        return false;
+      } finally {
+        nicknameSave.disabled = false;
+      }
+    }
+
+    nicknameInput.addEventListener("input", () => {
+      nicknameDirty = cleanNickname(nicknameInput.value) !== nickname;
+      nicknameStatus.textContent = nicknameDirty ? "有修改，点击“保存”" : "昵称已保存";
+      nicknameStatus.className = "nickname-status" + (nicknameDirty ? " dirty" : " saved");
     });
+
+    nicknameInput.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        void saveNickname(true);
+        nicknameInput.blur();
+      }
+    });
+
+    nicknameInput.addEventListener("blur", () => {
+      if (nicknameDirty) void saveNickname(false);
+    });
+
+    nicknameSave.addEventListener("click", () => void saveNickname(true));
 
     async function sendFeedback(fairness: string, message: string, noteId: string) {
       if (!fairness) return;
