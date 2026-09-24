@@ -134,7 +134,7 @@ import "../styles/game.css";
           <button class="scope-tab" data-scope="all" type="button">总榜</button>
         </div>
 
-        <div class="my-rank" id="myRank">还没有上榜，先去偷一条鱼。</div>
+        <div class="my-rank self-rank-card" id="myRank" aria-live="polite"></div>
         <div class="leaderboard-list" id="leaderboardList">
           <div class="leaderboard-loading">正在读取全球成绩…</div>
         </div>
@@ -253,18 +253,18 @@ import "../styles/game.css";
     };
 
     const fallbackConfig: DifficultyConfig = {
-      label: "高压反应",
-      fakeChanceBase: 0.28,
-      fakeChanceMax: 0.46,
-      cueDelayMin: 720,
-      cueDelayMax: 1520,
-      anticipationBase: 420,
-      anticipationMin: 225,
-      watchBase: 900,
-      watchMin: 510,
-      difficultySlope: 0.07,
-      dragScaleTouch: 0.34,
-      dragScalePointer: 0.26,
+      label: "高压反应 V3",
+      fakeChanceBase: 0.34,
+      fakeChanceMax: 0.56,
+      cueDelayMin: 520,
+      cueDelayMax: 1160,
+      anticipationBase: 335,
+      anticipationMin: 165,
+      watchBase: 760,
+      watchMin: 430,
+      difficultySlope: 0.09,
+      dragScaleTouch: 0.32,
+      dragScalePointer: 0.245,
     };
 
     let experimentKey = "difficulty_v2";
@@ -272,6 +272,9 @@ import "../styles/game.css";
     let variant = "A";
     let config: DifficultyConfig = fallbackConfig;
     let pendingExperiment: any = null;
+    let leaderboardScope = "today";
+    let leaderboardMe: any = null;
+    let leaderboardPlayers = 0;
 
     const state = {
       phase: "sleeping" as Phase,
@@ -797,8 +800,8 @@ import "../styles/game.css";
       if (!state.started || state.phase === "attack") return;
 
       const p = pressure();
-      const minDelay = Math.max(520, config.cueDelayMin * (1 - 0.23 * p));
-      const maxDelay = Math.max(minDelay + 180, config.cueDelayMax * (1 - 0.31 * p));
+      const minDelay = Math.max(390, config.cueDelayMin * (1 - 0.34 * p));
+      const maxDelay = Math.max(minDelay + 145, config.cueDelayMax * (1 - 0.43 * p));
       state.timer = window.setTimeout(() => {
         Math.random() < currentFakeChance() ? fakeCue() : realCue();
       }, rand(minDelay, maxDelay));
@@ -809,12 +812,12 @@ import "../styles/game.css";
       setPhase("fake");
       queueEvent("fake_cue", { pressure: Number(pressure().toFixed(3)) });
       bluffRustleSound();
-      const hold = state.score >= 15 ? rand(240, 380) : rand(320, 470);
+      const hold = state.score >= 10 ? rand(185, 310) : rand(250, 390);
 
       state.timer = window.setTimeout(() => {
         if (state.phase !== "fake") return;
 
-        if (state.score >= 12 && Math.random() < 0.22) {
+        if (state.score >= 8 && Math.random() < 0.36) {
           // A second bluff increases tension without ever violating the real danger cue.
           photoCard.classList.add("double-bluff");
           window.setTimeout(() => photoCard.classList.remove("double-bluff"), 260);
@@ -841,7 +844,7 @@ import "../styles/game.css";
       const p = pressure();
       const anticipation = Math.max(
         config.anticipationMin,
-        config.anticipationBase * (1 - 0.54 * p),
+        config.anticipationBase * (1 - 0.65 * p),
       );
 
       state.watchTimer = window.setTimeout(() => {
@@ -859,7 +862,7 @@ import "../styles/game.css";
 
         const watchWindow = Math.max(
           config.watchMin,
-          config.watchBase * (1 - 0.41 * p) + rand(-70, 130),
+          config.watchBase * (1 - 0.49 * p) + rand(-65, 105),
         );
 
         state.watchTimer = window.setTimeout(() => {
@@ -1180,7 +1183,51 @@ import "../styles/game.css";
       }
     });
 
+    function scopeLabel(scope: string) {
+      return scope === "week" ? "本周" : scope === "all" ? "总榜" : "今日";
+    }
+
+    function flagEmoji(country: string) {
+      if (!/^[A-Z]{2}$/.test(country || "")) return "";
+      return String.fromCodePoint(...country.split("").map((char) => 127397 + char.charCodeAt(0)));
+    }
+
+    function renderMyRank(me: any = leaderboardMe, scope = leaderboardScope) {
+      myRank.innerHTML = "";
+
+      const tag = document.createElement("span");
+      tag.className = "self-rank-tag";
+      tag.textContent = "我的成绩";
+
+      const row = document.createElement("div");
+      row.className = "self-rank-inner";
+
+      const rank = document.createElement("strong");
+      rank.className = "self-rank-position";
+      rank.textContent = me?.rank ? "#" + me.rank : "未上榜";
+
+      const person = document.createElement("div");
+      person.className = "self-rank-person";
+      const name = document.createElement("b");
+      const country = me?.country ? flagEmoji(me.country) + " " : "";
+      name.textContent = country + nickname;
+      const meta = document.createElement("small");
+      meta.textContent = me?.rank
+        ? scopeLabel(scope) + " · 共 " + (me.players || leaderboardPlayers || 0) + " 位玩家"
+        : scopeLabel(scope) + " · 先完成一局即可上榜";
+      person.append(name, meta);
+
+      const score = document.createElement("b");
+      score.className = "self-rank-score";
+      score.textContent = (me?.score ?? best ?? 0) + " 鱼";
+
+      row.append(rank, person, score);
+      myRank.append(tag, row);
+    }
+
     async function loadLeaderboard(scope = "today") {
+      leaderboardScope = scope;
+      renderMyRank(leaderboardMe, scope);
       queueEvent("leaderboard_scope", { scope });
       leaderboardList.innerHTML = '<div class="leaderboard-loading">正在读取全球成绩…</div>';
       try {
@@ -1188,23 +1235,29 @@ import "../styles/game.css";
         const data = await response.json();
         if (!data?.ok) throw new Error("leaderboard");
 
+        leaderboardMe = data.me || null;
+        leaderboardPlayers = Number(data.players || 0);
+        renderMyRank(leaderboardMe, scope);
+
         if (data.me?.rank) {
-          myRank.textContent = "你的排名：#" + data.me.rank + " · " + data.me.score + " 分 · 共 " + data.me.players + " 位玩家";
           if (scope === "today") rankMetric.textContent = "#" + data.me.rank;
-        } else {
-          myRank.textContent = "还没有上榜，先去偷一条鱼。";
+        } else if (scope === "today") {
+          rankMetric.textContent = "--";
         }
 
-        if (!data.entries?.length) {
-          leaderboardList.innerHTML = '<div class="leaderboard-loading">今天还没人上榜，你可以拿第一个。</div>';
+        const visibleEntries = Array.isArray(data.entries)
+          ? data.entries.filter((entry: any) => !entry.isMe)
+          : [];
+
+        if (!visibleEntries.length) {
+          leaderboardList.innerHTML = '<div class="leaderboard-loading">还没有其他玩家上榜，你暂时领先。</div>';
           return;
         }
 
         leaderboardList.innerHTML = "";
-        for (const entry of data.entries) {
+        for (const entry of visibleEntries) {
           const row = document.createElement("div");
           row.className = "leaderboard-row";
-          if (data.me && entry.rank === data.me.rank && entry.score === data.me.score) row.classList.add("me");
 
           const rank = document.createElement("strong");
           rank.className = "lb-rank";
@@ -1233,6 +1286,7 @@ import "../styles/game.css";
 
     function openLeaderboard() {
       leaderboardOverlay.classList.add("show");
+      renderMyRank(leaderboardMe, leaderboardScope);
       queueEvent("leaderboard_open", {}, true);
       void loadLeaderboard(document.querySelector(".scope-tab.active")?.getAttribute("data-scope") || "today");
     }
@@ -1277,6 +1331,8 @@ import "../styles/game.css";
           nicknameDirty = false;
           nicknameStatus.textContent = "已同步昵称：" + nickname;
           nicknameStatus.className = "nickname-status saved";
+          if (leaderboardMe) leaderboardMe = { ...leaderboardMe, nickname };
+          renderMyRank(leaderboardMe, leaderboardScope);
         }
       } catch {
         nicknameStatus.textContent = "当前使用本机昵称";
@@ -1310,7 +1366,12 @@ import "../styles/game.css";
         nicknameStatus.textContent = showSuccess ? "已保存 ✓ 排行榜昵称也已更新" : "已保存";
         nicknameStatus.className = "nickname-status saved";
         nicknameSave.textContent = "已保存";
+
+        if (leaderboardMe) leaderboardMe = { ...leaderboardMe, nickname };
+        renderMyRank(leaderboardMe, leaderboardScope);
+
         queueEvent("nickname_saved", { length: nickname.length }, true);
+        void loadLeaderboard(leaderboardScope);
         window.setTimeout(() => { nicknameSave.textContent = "保存"; }, 1200);
         return true;
       } catch {
@@ -1467,6 +1528,7 @@ import "../styles/game.css";
 
     selectNewCat();
     setPhase("sleeping");
+    renderMyRank(null, "today");
     queueEvent("page_view", { challenge: beat }, true);
     if (beat > 0) queueEvent("challenge_open", { target: beat, from: challenger }, true);
     void loadExperiment();
