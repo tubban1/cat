@@ -794,16 +794,6 @@ import "../styles/game.css";
       musicGain.gain.setTargetAtTime(target, audio.currentTime, 0.045);
     }
 
-    function fakeSound() {
-      tone(520, 0.035, "triangle", 0.016);
-      tone(390, 0.045, "sine", 0.010, 0.045);
-    }
-
-    function warningSound() {
-      tone(410, 0.055, "triangle", 0.024);
-      tone(610, 0.065, "triangle", 0.020, 0.055);
-    }
-
     function freezeSound() {
       tone(190, 0.12, "square", 0.032);
       tone(95, 0.18, "sine", 0.030, 0.025);

@@ -31,7 +31,7 @@ export function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
 
-function gammaSample(shape: number) {
+function gammaSample(shape: number): number {
   const k = Math.max(0.001, shape);
   if (k < 1) {
     const u = Math.max(Number.EPSILON, Math.random());
@@ -133,7 +133,7 @@ export async function selectAdaptiveArm(player: AdaptivePlayer) {
     } satisfies AdaptiveArm;
   }
 
-  let best = arms[0];
+  let best = arms[0]!;
   let bestScore = -Infinity;
 
   for (const arm of arms) {
