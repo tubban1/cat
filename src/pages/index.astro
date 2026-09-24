@@ -267,11 +267,92 @@ import "../styles/game.css";
       dragScalePointer: 0.245,
     };
 
+    type AdaptivePolicy = {
+      enabled: boolean;
+      version: number;
+      armKey: string;
+      armLabel: string;
+      params: {
+        hazardBase?: number;
+        timeHazard?: number;
+        progressHazard?: number;
+        fakeBias?: number;
+        doubleBluffBonus?: number;
+        anticipationScale?: number;
+        watchScale?: number;
+        movementThresholdScale?: number;
+      };
+      player: {
+        reactionMuMs: number;
+        reactionSigmaMs: number;
+        deceptionSkill: number;
+        uncertaintySkill: number;
+        motorSkill: number;
+        pressureSkill: number;
+        observations: number;
+      };
+      targetFailure: { early: number; mid: number; late: number; ceiling: number };
+      fairness: {
+        minAnticipationMs: number;
+        maxFakeChance: number;
+        maxConsecutiveFakes: number;
+        minMovementThresholdPointer: number;
+        minMovementThresholdTouch: number;
+      };
+    };
+
+    const fallbackAdaptive: AdaptivePolicy = {
+      enabled: false,
+      version: 4,
+      armKey: "reflex",
+      armLabel: "反应猎手",
+      params: {
+        hazardBase: 0.84, timeHazard: 1.0, progressHazard: 0.34, fakeBias: 0,
+        doubleBluffBonus: 0.08, anticipationScale: 0.92, watchScale: 1, movementThresholdScale: 1,
+      },
+      player: {
+        reactionMuMs: 285, reactionSigmaMs: 90, deceptionSkill: 0.5,
+        uncertaintySkill: 0.5, motorSkill: 0.5, pressureSkill: 0.5, observations: 0,
+      },
+      targetFailure: { early: 0.16, mid: 0.27, late: 0.34, ceiling: 0.36 },
+      fairness: {
+        minAnticipationMs: 150, maxFakeChance: 0.68, maxConsecutiveFakes: 2,
+        minMovementThresholdPointer: 1.3, minMovementThresholdTouch: 1.8,
+      },
+    };
+
+    type RunMetrics = {
+      warningStarted: number;
+      warningMoveAt: number;
+      currentReactionCandidate: number;
+      lastMoveAt: number;
+      fakeCues: number;
+      falseStops: number;
+      realCues: number;
+      survivedLooks: number;
+      reactionSamples: number[];
+      dragSpeedSum: number;
+      dragSpeedSq: number;
+      dragSamples: number;
+      consecutiveFakes: number;
+    };
+
+    function freshRunMetrics(): RunMetrics {
+      return {
+        warningStarted: 0, warningMoveAt: 0, currentReactionCandidate: 0, lastMoveAt: 0,
+        fakeCues: 0, falseStops: 0, realCues: 0, survivedLooks: 0, reactionSamples: [],
+        dragSpeedSum: 0, dragSpeedSq: 0, dragSamples: 0, consecutiveFakes: 0,
+      };
+    }
+
     let experimentKey = "difficulty_v2";
     let experimentVersion = 1;
     let variant = "A";
     let config: DifficultyConfig = fallbackConfig;
+    let adaptive: AdaptivePolicy = fallbackAdaptive;
     let pendingExperiment: any = null;
+    let pendingAdaptive: AdaptivePolicy | null = null;
+    let runMetrics = freshRunMetrics();
     let leaderboardScope = "today";
     let leaderboardMe: any = null;
     let leaderboardPlayers = 0;
@@ -348,30 +429,50 @@ import "../styles/game.css";
       }
     }
 
+    function normalizeAdaptive(value: any): AdaptivePolicy {
+      if (!value || typeof value !== "object") return fallbackAdaptive;
+      return {
+        ...fallbackAdaptive,
+        ...value,
+        params: { ...fallbackAdaptive.params, ...(value.params || {}) },
+        player: { ...fallbackAdaptive.player, ...(value.player || {}) },
+        targetFailure: { ...fallbackAdaptive.targetFailure, ...(value.targetFailure || {}) },
+        fairness: { ...fallbackAdaptive.fairness, ...(value.fairness || {}) },
+      };
+    }
+
     async function loadExperiment() {
       try {
         const response = await fetch("/api/bootstrap?session=" + encodeURIComponent(sessionId), { cache: "no-store" });
         const data = await response.json();
         if (!data?.ok || !data?.experiment?.config) return;
         const next = data.experiment;
+        const nextAdaptive = normalizeAdaptive(data.adaptive);
         if (state.started) {
           pendingExperiment = next;
+          pendingAdaptive = nextAdaptive;
         } else {
           experimentKey = next.key;
           experimentVersion = next.version;
           variant = next.variant;
           config = { ...fallbackConfig, ...next.config };
+          adaptive = nextAdaptive;
         }
       } catch {}
     }
 
     function applyPendingExperiment() {
-      if (!pendingExperiment) return;
-      experimentKey = pendingExperiment.key;
-      experimentVersion = pendingExperiment.version;
-      variant = pendingExperiment.variant;
-      config = { ...fallbackConfig, ...pendingExperiment.config };
-      pendingExperiment = null;
+      if (pendingExperiment) {
+        experimentKey = pendingExperiment.key;
+        experimentVersion = pendingExperiment.version;
+        variant = pendingExperiment.variant;
+        config = { ...fallbackConfig, ...pendingExperiment.config };
+        pendingExperiment = null;
+      }
+      if (pendingAdaptive) {
+        adaptive = pendingAdaptive;
+        pendingAdaptive = null;
+      }
     }
 
     function selectNewCat() {
@@ -446,9 +547,92 @@ import "../styles/game.css";
       return 1 - Math.exp(-Math.max(0, state.score) * Math.max(0.02, config.difficultySlope));
     }
 
+    function clampNumber(value: number, min: number, max: number) {
+      return Math.min(max, Math.max(min, value));
+    }
+
     function currentFakeChance() {
+      if (runMetrics.consecutiveFakes >= adaptive.fairness.maxConsecutiveFakes) return 0;
       const p = pressure();
-      return config.fakeChanceBase + (config.fakeChanceMax - config.fakeChanceBase) * p;
+      const base = config.fakeChanceBase + (config.fakeChanceMax - config.fakeChanceBase) * p;
+      return clampNumber(
+        base + Number(adaptive.params.fakeBias || 0),
+        0.06,
+        adaptive.fairness.maxFakeChance,
+      );
+    }
+
+    function targetFailureProbability() {
+      const target = adaptive.targetFailure;
+      if (state.score <= 2) return target.early;
+      if (state.score < 10) {
+        const t = (state.score - 2) / 8;
+        return target.early + (target.mid - target.early) * t;
+      }
+      if (state.score < 20) {
+        const t = (state.score - 10) / 10;
+        return target.mid + (target.late - target.mid) * t;
+      }
+      const t = 1 - Math.exp(-(state.score - 20) / 12);
+      return Math.min(target.ceiling, target.late + (target.ceiling - target.late) * t);
+    }
+
+    // Acklam-style inverse normal approximation. It lets us turn a desired
+    // failure probability into a per-player warning window.
+    function normalQuantile(probability: number) {
+      const p = clampNumber(probability, 0.001, 0.999);
+      const a = [-39.6968302866538,220.946098424521,-275.928510446969,138.357751867269,-30.6647980661472,2.50662827745924];
+      const b = [-54.4760987982241,161.585836858041,-155.698979859887,66.8013118877197,-13.2806815528857];
+      const c = [-0.00778489400243029,-0.322396458041136,-2.40075827716184,-2.54973253934373,4.37466414146497,2.93816398269878];
+      const d = [0.00778469570904146,0.32246712907004,2.445134137143,3.75440866190742];
+      const low = 0.02425;
+      const high = 1 - low;
+
+      if (p < low) {
+        const q = Math.sqrt(-2 * Math.log(p));
+        return (((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+          ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+      }
+      if (p > high) {
+        const q = Math.sqrt(-2 * Math.log(1 - p));
+        return -(((((c[0]! * q + c[1]!) * q + c[2]!) * q + c[3]!) * q + c[4]!) * q + c[5]!) /
+          ((((d[0]! * q + d[1]!) * q + d[2]!) * q + d[3]!) * q + 1);
+      }
+
+      const q = p - 0.5;
+      const r = q * q;
+      return (((((a[0]! * r + a[1]!) * r + a[2]!) * r + a[3]!) * r + a[4]!) * r + a[5]!) * q /
+        (((((b[0]! * r + b[1]!) * r + b[2]!) * r + b[3]!) * r + b[4]!) * r + 1);
+    }
+
+    function adaptiveAnticipationMs() {
+      const p = pressure();
+      const targetFail = targetFailureProbability();
+      const mu = clampNumber(Number(adaptive.player.reactionMuMs || 285), 100, 650);
+      const sigma = clampNumber(Number(adaptive.player.reactionSigmaMs || 90), 20, 220);
+      const quantile = normalQuantile(1 - targetFail);
+      const learnedWindow = (mu + sigma * quantile) * Number(adaptive.params.anticipationScale || 1);
+      const baseline = Math.max(config.anticipationMin, config.anticipationBase * (1 - 0.65 * p));
+      const blended = adaptive.enabled ? learnedWindow * 0.78 + baseline * 0.22 : baseline;
+      return clampNumber(
+        blended,
+        adaptive.fairness.minAnticipationMs,
+        430,
+      );
+    }
+
+    function adaptiveWatchMs() {
+      const p = pressure();
+      const base = Math.max(config.watchMin, config.watchBase * (1 - 0.49 * p) + rand(-65, 105));
+      return clampNumber(base * Number(adaptive.params.watchScale || 1), 360, 1100);
+    }
+
+    function adaptiveMovementThreshold() {
+      const base = device === "touch" ? 2.6 : 1.8;
+      const floor = device === "touch"
+        ? adaptive.fairness.minMovementThresholdTouch
+        : adaptive.fairness.minMovementThresholdPointer;
+      return Math.max(floor, base * Number(adaptive.params.movementThresholdScale || 1));
     }
 
     let audio: AudioContext | null = null;
@@ -735,6 +919,7 @@ import "../styles/game.css";
             experimentKey,
             challengeTarget: beat,
             device,
+            adaptiveArm: adaptive.armKey,
           }),
         });
         const data = await response.json();
@@ -779,6 +964,76 @@ import "../styles/game.css";
       }
     }
 
+    function summarizeAdaptiveMetrics(nearMissLatencyMs: number) {
+      const samples = runMetrics.reactionSamples.slice(-24);
+      const reactionMeanMs = samples.length
+        ? samples.reduce((sum, value) => sum + value, 0) / samples.length
+        : undefined;
+      const reactionVariance = samples.length > 1 && reactionMeanMs !== undefined
+        ? samples.reduce((sum, value) => sum + Math.pow(value - reactionMeanMs, 2), 0) / samples.length
+        : undefined;
+      const reactionStdMs = reactionVariance !== undefined ? Math.sqrt(reactionVariance) : undefined;
+
+      const dragMeanSpeed = runMetrics.dragSamples > 0
+        ? runMetrics.dragSpeedSum / runMetrics.dragSamples
+        : undefined;
+      const dragVariance = runMetrics.dragSamples > 1 && dragMeanSpeed !== undefined
+        ? Math.max(0, runMetrics.dragSpeedSq / runMetrics.dragSamples - dragMeanSpeed * dragMeanSpeed)
+        : undefined;
+      const dragCv = dragVariance !== undefined && dragMeanSpeed && dragMeanSpeed > 0.001
+        ? Math.sqrt(dragVariance) / dragMeanSpeed
+        : undefined;
+
+      return {
+        reactionMeanMs: reactionMeanMs !== undefined ? Math.round(reactionMeanMs) : undefined,
+        reactionStdMs: reactionStdMs !== undefined ? Math.round(reactionStdMs) : undefined,
+        fakeCues: runMetrics.fakeCues,
+        falseStops: runMetrics.falseStops,
+        realCues: runMetrics.realCues,
+        survivedLooks: runMetrics.survivedLooks,
+        dragMeanSpeed: dragMeanSpeed !== undefined ? Number(dragMeanSpeed.toFixed(4)) : undefined,
+        dragCv: dragCv !== undefined ? Number(dragCv.toFixed(4)) : undefined,
+        nearMissLatencyMs: Math.round(Math.max(0, nearMissLatencyMs)),
+        durationMs: Math.round(Math.max(0, performance.now() - state.startedAt)),
+      };
+    }
+
+    async function updateAdaptiveRun(metrics: ReturnType<typeof summarizeAdaptiveMetrics>) {
+      if (state.runPromise) await state.runPromise;
+      if (!state.runId || !state.runToken || !adaptive.armKey) return null;
+
+      const payload = {
+        sessionId,
+        runId: state.runId,
+        token: state.runToken,
+        armKey: adaptive.armKey,
+        score: state.score,
+        metrics,
+      };
+
+      try {
+        const response = await fetch("/api/adaptive/update", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (data?.ok) {
+          queueEvent("adaptive_update", {
+            arm: adaptive.armKey,
+            reward: Number(data?.adaptive?.reward || data?.reward || 0),
+            score: state.score,
+          });
+          // Fetch a fresh Thompson-sampled arm for the next run. Because this
+          // run is still active, loadExperiment stores it as pending config.
+          void loadExperiment();
+        }
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
     function startRun() {
       if (state.started) return;
       state.started = true;
@@ -787,8 +1042,16 @@ import "../styles/game.css";
       state.runId = "";
       state.runToken = "";
       state.lastRanking = null;
+      runMetrics = freshRunMetrics();
+      runMetrics.lastMoveAt = performance.now();
       state.runPromise = createServerRun();
-      queueEvent("game_start", { attempt: state.attempts, experimentVersion }, true);
+      queueEvent("game_start", {
+        attempt: state.attempts,
+        experimentVersion,
+        adaptiveVersion: adaptive.version,
+        adaptiveArm: adaptive.armKey,
+        adaptiveLabel: adaptive.armLabel,
+      }, true);
       headline.textContent = "继续偷。";
       subline.textContent = "看到“别动”就马上停手。";
       hint.textContent = "越往后越难，没有终点。";
@@ -800,33 +1063,80 @@ import "../styles/game.css";
       if (!state.started || state.phase === "attack") return;
 
       const p = pressure();
-      const minDelay = Math.max(390, config.cueDelayMin * (1 - 0.34 * p));
-      const maxDelay = Math.max(minDelay + 145, config.cueDelayMax * (1 - 0.43 * p));
-      state.timer = window.setTimeout(() => {
-        Math.random() < currentFakeChance() ? fakeCue() : realCue();
-      }, rand(minDelay, maxDelay));
+      const startedAt = performance.now();
+      const minDelay = Math.max(300, config.cueDelayMin * (1 - 0.42 * p));
+      const hardMax = Math.max(minDelay + 160, config.cueDelayMax * (1 - 0.52 * p));
+      const hazardBase = clampNumber(Number(adaptive.params.hazardBase || 0.82), 0.35, 1.45);
+      const timeHazard = clampNumber(Number(adaptive.params.timeHazard || 1), 0.35, 1.8);
+      const progressHazard = clampNumber(Number(adaptive.params.progressHazard || 0.35), 0, 0.9);
+
+      const tick = () => {
+        if (!state.started || state.phase === "attack") return;
+        const elapsed = performance.now() - startedAt;
+        if (elapsed < minDelay) {
+          state.timer = window.setTimeout(tick, Math.min(85, Math.max(30, minDelay - elapsed)));
+          return;
+        }
+
+        const sinceMin = Math.max(0, (elapsed - minDelay) / 1000);
+        const progressFactor = state.progress / 100;
+        const scoreFactor = 0.78 + 0.90 * p;
+        const lambda = hazardBase * scoreFactor
+          * (1 + timeHazard * sinceMin * 0.55)
+          * (1 + progressHazard * progressFactor);
+        const dt = 0.085;
+        const fireProbability = 1 - Math.exp(-lambda * dt);
+
+        if (elapsed >= hardMax || Math.random() < fireProbability) {
+          Math.random() < currentFakeChance() ? fakeCue() : realCue();
+          return;
+        }
+
+        state.timer = window.setTimeout(tick, rand(70, 100));
+      };
+
+      state.timer = window.setTimeout(tick, Math.min(85, minDelay));
     }
 
     function fakeCue() {
       if (state.phase === "attack") return;
       setPhase("fake");
-      queueEvent("fake_cue", { pressure: Number(pressure().toFixed(3)) });
+      runMetrics.fakeCues++;
+      runMetrics.consecutiveFakes++;
+      const progressAtFake = state.progress;
+      const wasDragging = state.drag;
+      queueEvent("fake_cue", {
+        pressure: Number(pressure().toFixed(3)),
+        arm: adaptive.armKey,
+        fakeChance: Number(currentFakeChance().toFixed(3)),
+      });
       bluffRustleSound();
-      const hold = state.score >= 10 ? rand(185, 310) : rand(250, 390);
+      const hold = state.score >= 10 ? rand(175, 295) : rand(235, 370);
 
       state.timer = window.setTimeout(() => {
         if (state.phase !== "fake") return;
 
-        if (state.score >= 8 && Math.random() < 0.36) {
-          // A second bluff increases tension without ever violating the real danger cue.
+        if (wasDragging && state.progress - progressAtFake < 1.25) {
+          runMetrics.falseStops++;
+        }
+
+        const doubleChance = clampNumber(
+          0.30 + Number(adaptive.params.doubleBluffBonus || 0),
+          0.20,
+          0.62,
+        );
+
+        if (state.score >= 6 && Math.random() < doubleChance) {
+          // A second bluff attacks pattern-learning, while the real warning
+          // remains visually and acoustically distinct.
           photoCard.classList.add("double-bluff");
-          window.setTimeout(() => photoCard.classList.remove("double-bluff"), 260);
+          window.setTimeout(() => photoCard.classList.remove("double-bluff"), 220);
           state.timer = window.setTimeout(() => {
             if (state.phase === "fake") {
               setPhase("sleeping");
               scheduleCue();
             }
-          }, 260);
+          }, 220);
         } else {
           setPhase("sleeping");
           scheduleCue();
@@ -837,20 +1147,35 @@ import "../styles/game.css";
     function realCue() {
       if (state.phase === "attack") return;
       setPhase("warning");
+      runMetrics.realCues++;
+      runMetrics.consecutiveFakes = 0;
+      runMetrics.warningStarted = performance.now();
+      runMetrics.warningMoveAt = 0;
+      runMetrics.currentReactionCandidate = 0;
+      const wasDraggingAtWarning = state.drag;
+
       signal.textContent = "…";
       signal.className = "signal show";
       dangerRiseSound();
 
-      const p = pressure();
-      const anticipation = Math.max(
-        config.anticipationMin,
-        config.anticipationBase * (1 - 0.65 * p),
-      );
+      const anticipation = Math.round(adaptiveAnticipationMs());
 
       state.watchTimer = window.setTimeout(() => {
         if (state.phase === "attack") return;
         setPhase("watching");
         state.watchStarted = performance.now();
+
+        if (runMetrics.warningMoveAt >= runMetrics.warningStarted && runMetrics.warningStarted > 0) {
+          runMetrics.currentReactionCandidate = clampNumber(
+            runMetrics.warningMoveAt - runMetrics.warningStarted,
+            80,
+            900,
+          );
+        } else if (wasDraggingAtWarning) {
+          // No movement after the warning means the player stopped very fast.
+          runMetrics.currentReactionCandidate = 90;
+        }
+
         signal.textContent = "别动！";
         signal.className = "signal show danger";
         watchOverlay.classList.add("show");
@@ -858,23 +1183,33 @@ import "../styles/game.css";
         freezeSound();
         heartbeatSound();
         vibrate(16);
-        queueEvent("eyes_open", { anticipationMs: Math.round(anticipation) });
+        queueEvent("eyes_open", {
+          anticipationMs: anticipation,
+          targetFail: Number(targetFailureProbability().toFixed(3)),
+          arm: adaptive.armKey,
+          reactionMuMs: adaptive.player.reactionMuMs,
+        });
 
-        const watchWindow = Math.max(
-          config.watchMin,
-          config.watchBase * (1 - 0.49 * p) + rand(-65, 105),
-        );
+        const watchWindow = adaptiveWatchMs();
 
         state.watchTimer = window.setTimeout(() => {
           if (state.phase === "watching") {
             state.survivedLooks++;
+            runMetrics.survivedLooks++;
+            if (runMetrics.currentReactionCandidate > 0) {
+              runMetrics.reactionSamples.push(runMetrics.currentReactionCandidate);
+            }
             setPhase("sleeping");
             watchOverlay.classList.remove("show");
             signal.textContent = "安全";
             signal.className = "signal show safe";
             escapeReliefSound();
             vibrate(7);
-            queueEvent("look_survived", { survived: state.survivedLooks });
+            queueEvent("look_survived", {
+              survived: state.survivedLooks,
+              arm: adaptive.armKey,
+              reactionMs: Math.round(runMetrics.currentReactionCandidate || 0),
+            });
             window.setTimeout(() => { signal.className = "signal"; }, 280);
             scheduleCue();
           }
@@ -886,7 +1221,16 @@ import "../styles/game.css";
       if (state.phase === "attack") return;
       clearTimers();
       state.drag = false;
-      const latency = Math.max(0, performance.now() - state.watchStarted);
+      const now = performance.now();
+      const latency = Math.max(0, now - state.watchStarted);
+
+      if (runMetrics.warningStarted > 0) {
+        // For a failed stop, the fatal movement is a lower bound on reaction time.
+        runMetrics.reactionSamples.push(
+          clampNumber(now - runMetrics.warningStarted, 80, 1200),
+        );
+      }
+
       setPhase("attack");
       fish.classList.remove("dragging");
       signal.className = "signal";
@@ -896,11 +1240,16 @@ import "../styles/game.css";
       nearMissCaughtSound(latency);
       vibrate([30, 22, 75]);
 
+      const adaptiveMetrics = summarizeAdaptiveMetrics(latency);
       queueEvent("run_end", {
         latencyMs: Math.round(latency),
         movement: Math.round(movement * 10) / 10,
         survived: state.survivedLooks,
         durationMs: Math.round(performance.now() - state.startedAt),
+        adaptiveArm: adaptive.armKey,
+        targetFail: Number(targetFailureProbability().toFixed(3)),
+        fakeCues: adaptiveMetrics.fakeCues,
+        falseStops: adaptiveMetrics.falseStops,
       }, true);
 
       if (state.score > best) {
@@ -910,12 +1259,13 @@ import "../styles/game.css";
       }
 
       const rankingPromise = finishServerRun();
+      const adaptivePromise = updateAdaptiveRun(adaptiveMetrics);
 
       window.setTimeout(async () => {
         game.classList.remove("shake");
         flash.classList.remove("go");
         showResult(latency);
-        await rankingPromise;
+        await Promise.allSettled([rankingPromise, adaptivePromise]);
       }, reducedMotion ? 60 : 650);
     }
 
@@ -1031,11 +1381,22 @@ import "../styles/game.css";
     fish.addEventListener("pointermove", (event: PointerEvent) => {
       if (!state.drag || state.phase === "attack") return;
       event.preventDefault();
+      const now = performance.now();
       const dx = event.clientX - state.lastX;
       state.lastX = event.clientX;
       if (Math.abs(dx) < 0.65) return;
 
-      const movementThreshold = device === "touch" ? 2.6 : 1.8;
+      const dt = now - runMetrics.lastMoveAt;
+      if (dt >= 8 && dt <= 180) {
+        const speed = Math.abs(dx) / dt;
+        runMetrics.dragSpeedSum += speed;
+        runMetrics.dragSpeedSq += speed * speed;
+        runMetrics.dragSamples++;
+      }
+      runMetrics.lastMoveAt = now;
+      if (state.phase === "warning") runMetrics.warningMoveAt = now;
+
+      const movementThreshold = adaptiveMovementThreshold();
       if (state.phase === "watching" && Math.abs(dx) > movementThreshold) {
         void die(Math.abs(dx));
         return;

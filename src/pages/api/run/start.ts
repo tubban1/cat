@@ -37,20 +37,37 @@ export const POST: APIRoute = async ({ request }) => {
   const experimentKey = cleanText(body?.experimentKey, 40) || EXPERIMENT_KEY;
   const challengeTarget = cleanInt(body?.challengeTarget, 100000);
   const device = cleanText(body?.device, 20);
+  const adaptiveArm = cleanText(body?.adaptiveArm, 32);
   const country = countryFrom(request);
   const family = uaFamily(request.headers.get("user-agent") || "");
 
+  const client = await getDbPool().connect();
   try {
-    await getDbPool().query(
+    await client.query("begin");
+    await client.query(
       `insert into cat_runs
         (run_id, token_hash, session_id, nickname, cat_id, experiment_key,
-         experiment_variant, challenge_target, country, device, user_agent_family)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [runId, tokenHash, sessionId, nickname, catId, experimentKey, variant, challengeTarget, country, device, family],
+         experiment_variant, challenge_target, country, device, user_agent_family, adaptive_arm)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [runId, tokenHash, sessionId, nickname, catId, experimentKey, variant, challengeTarget, country, device, family, adaptiveArm],
     );
-    return json({ ok: true, runId, token, startedAt: Date.now() }, 201);
+
+    if (adaptiveArm) {
+      await client.query(
+        `update cat_adaptive_arms
+            set exposures=exposures + 1, updated_at=now()
+          where arm_key=$1 and enabled=true`,
+        [adaptiveArm],
+      );
+    }
+
+    await client.query("commit");
+    return json({ ok: true, runId, token, startedAt: Date.now(), adaptiveArm }, 201);
   } catch (error) {
+    await client.query("rollback");
     console.error("run_start_failed", error);
     return json({ ok: false, error: "storage_error" }, 500);
+  } finally {
+    client.release();
   }
 };

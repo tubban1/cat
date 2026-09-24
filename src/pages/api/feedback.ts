@@ -45,17 +45,41 @@ export const POST: APIRoute = async ({ request }) => {
   const country = countryFrom(request);
   const family = uaFamily(request.headers.get("user-agent") || "");
 
+  const client = await getDbPool().connect();
   try {
-    await getDbPool().query(
+    await client.query("begin");
+    const inserted = await client.query(
       `insert into cat_feedback
         (session_id, run_id, fairness, message, score, challenge_target,
          experiment_key, experiment_variant, cat_id, locale, device, country, user_agent_family)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+       returning id`,
       [sessionId, runId, fairness, message, score, challengeTarget, experimentKey, variant, catId, locale, device, country, family],
     );
+
+    if (fairness === "unfair" && runId && inserted.rows[0]?.id) {
+      await client.query(
+        `update cat_adaptive_arms a
+            set unfair_reports=unfair_reports + 1, updated_at=now()
+          where a.arm_key=(
+            select r.adaptive_arm from cat_runs r
+             where r.run_id=$1 and r.session_id=$2
+          )
+            and not exists (
+              select 1 from cat_feedback f
+               where f.run_id=$1 and f.fairness='unfair' and f.id <> $3
+            )`,
+        [runId, sessionId, inserted.rows[0].id],
+      );
+    }
+
+    await client.query("commit");
     return json({ ok: true }, 201);
   } catch (error) {
+    await client.query("rollback");
     console.error("feedback_insert_failed", error);
     return json({ ok: false, error: "storage_error" }, 500);
+  } finally {
+    client.release();
   }
 };

@@ -104,6 +104,7 @@ export const allowedEvents = new Set([
   "nickname_saved",
   "audio_started",
   "audio_toggle",
+  "adaptive_update",
   "feedback_open",
   "feedback_submitted",
   "page_hide",

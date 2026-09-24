@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDbPool, dbConfigured } from "../../lib/db";
+import { getOrCreateAdaptivePlayer, publicPlayerModel, selectAdaptiveArm, targetFailureRange } from "../../lib/adaptive";
 import { EXPERIMENT_KEY, cleanText, json, pickWeightedVariant, validSessionId } from "../../lib/gameServer";
 
 export const prerender = false;
@@ -64,9 +65,55 @@ export const GET: APIRoute = async ({ request }) => {
   const variant = pickWeightedVariant(weights, sessionId + ":" + EXPERIMENT_KEY + ":" + version);
   const config = variants[variant] || variants.A || fallback.A;
 
+  let adaptive: any = {
+    enabled: false,
+    version: 4,
+    armKey: "reflex",
+    armLabel: "反应猎手",
+    params: {},
+    player: {
+      reactionMuMs: 285, reactionSigmaMs: 90, deceptionSkill: 0.5,
+      uncertaintySkill: 0.5, motorSkill: 0.5, pressureSkill: 0.5, observations: 0,
+    },
+    targetFailure: { early: 0.16, mid: 0.27, late: 0.34, ceiling: 0.36 },
+    fairness: {
+      minAnticipationMs: 150,
+      maxFakeChance: 0.68,
+      maxConsecutiveFakes: 2,
+      minMovementThresholdPointer: 1.3,
+      minMovementThresholdTouch: 1.8,
+    },
+  };
+
+  if (dbConfigured()) {
+    try {
+      const player = await getOrCreateAdaptivePlayer(sessionId);
+      const arm = await selectAdaptiveArm(player);
+      adaptive = {
+        enabled: true,
+        version: 4,
+        armKey: arm.arm_key,
+        armLabel: arm.label,
+        params: arm.params || {},
+        player: publicPlayerModel(player),
+        targetFailure: targetFailureRange(player),
+        fairness: {
+          minAnticipationMs: 150,
+          maxFakeChance: 0.68,
+          maxConsecutiveFakes: 2,
+          minMovementThresholdPointer: 1.3,
+          minMovementThresholdTouch: 1.8,
+        },
+      };
+    } catch (error) {
+      console.error("bootstrap_adaptive_failed", error);
+    }
+  }
+
   return json({
     ok: true,
     experiment: { key: EXPERIMENT_KEY, version, variant, config },
+    adaptive,
     monetization: { adsEnabled: false, rewardedContinueEnabled: false },
   });
 };

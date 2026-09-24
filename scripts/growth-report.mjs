@@ -14,7 +14,7 @@ const days = Number(process.env.REPORT_DAYS || 7);
 const since = new Date(Date.now() - days * 86400000);
 
 try {
-  const [summary, variants, fairness, countries, top] = await Promise.all([
+  const [summary, variants, fairness, countries, top, adaptiveArms, adaptivePlayers] = await Promise.all([
     pool.query(
       `with starts as (
          select session_id, count(*) as plays
@@ -98,6 +98,24 @@ try {
         limit 10`,
       [since],
     ),
+    pool.query(
+      `select arm_key, label, exposures, updates, unfair_reports,
+              round((alpha/(alpha+beta))::numeric,4) as posterior_mean,
+              round((unfair_reports::numeric/nullif(updates,0)),4) as unfair_rate
+         from cat_adaptive_arms
+        where enabled=true
+        order by arm_key`,
+    ),
+    pool.query(
+      `select count(*)::int as modeled_players,
+              round(avg(reaction_mu_ms)::numeric,1) as avg_reaction_ms,
+              round(avg(deception_skill)::numeric,3) as avg_deception_skill,
+              round(avg(uncertainty_skill)::numeric,3) as avg_uncertainty_skill,
+              round(avg(motor_skill)::numeric,3) as avg_motor_skill,
+              round(avg(pressure_skill)::numeric,3) as avg_pressure_skill,
+              round(avg(observations)::numeric,2) as avg_observations
+         from cat_adaptive_players`,
+    ),
   ]);
 
   const s = summary.rows[0] || {};
@@ -118,6 +136,19 @@ try {
     out.push("|" + row.variant + "|" + row.sessions + "|" + (Number(row.repeat_rate) * 100).toFixed(1) + "%|" + (Number(row.share_rate) * 100).toFixed(1) + "%|" + ((Number(f.unfair_rate) || 0) * 100).toFixed(1) + "%|");
   }
   out.push("");
+  out.push("## Adaptive Difficulty V4");
+  const ap = adaptivePlayers.rows[0] || {};
+  out.push("- 已建模玩家：**" + (ap.modeled_players || 0) + "**");
+  out.push("- 平均估计反应时间：**" + (ap.avg_reaction_ms || "-") + "ms**");
+  out.push("- 平均技能向量：欺骗 " + (ap.avg_deception_skill || "-") + " / 不确定性 " + (ap.avg_uncertainty_skill || "-") + " / 手控 " + (ap.avg_motor_skill || "-") + " / 高压 " + (ap.avg_pressure_skill || "-"));
+  out.push("");
+  out.push("|策略臂|曝光|更新|Bandit 后验均值|不公平反馈率|");
+  out.push("|---|---:|---:|---:|---:|");
+  for (const row of adaptiveArms.rows) {
+    out.push("|" + row.label + " (" + row.arm_key + ")|" + row.exposures + "|" + row.updates + "|" + (Number(row.posterior_mean || 0) * 100).toFixed(1) + "%|" + (Number(row.unfair_rate || 0) * 100).toFixed(1) + "%|");
+  }
+  out.push("");
+
   out.push("## 国家/地区");
   out.push(countries.rows.length ? countries.rows.map((r) => "- " + r.country + ": " + r.players).join("\\n") : "- 暂无数据");
   out.push("");
