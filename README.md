@@ -247,6 +247,19 @@ A/B 分流、行为埋点、玩家反馈与 guardrail 一起决定下一版。
 
 详细设计见 [docs/GROWTH_LOOP.md](docs/GROWTH_LOOP.md)。
 
+### Adaptive Difficulty V4
+
+当前生产难度系统在 A/B 基础层之上增加了玩家级自适应控制：
+
+- 反应时间分布建模，而不是固定毫秒阈值
+- Hazard Function 打破可学习的固定安全节奏
+- 五种难度策略臂的 Contextual Thompson Sampling
+- 反应 / 欺骗识别 / 不确定性 / 手控 / 高压稳定性五维玩家模型
+- 每局结束在线更新，下局重新选择攻击维度
+- 150ms 最低可读预警、假动作上限和“不公平”反馈等硬性护栏
+
+详细设计见 [Adaptive Difficulty V4](docs/ADAPTIVE_DIFFICULTY_V4.md)。
+
 ---
 
 ## 🌍 Leaderboard & Anti-cheat
