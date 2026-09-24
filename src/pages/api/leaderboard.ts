@@ -94,6 +94,7 @@ export const GET: APIRoute = async ({ request }) => {
         catId: row.cat_id,
         country: row.country,
         flag: flag(row.country || ""),
+        isMe: validSessionId(sessionId) && row.session_id === sessionId,
       })),
     });
   } catch (error) {
