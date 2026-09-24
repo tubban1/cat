@@ -78,16 +78,8 @@ function vulnerabilityFor(armKey: string, player: AdaptivePlayer) {
   return 0.5;
 }
 
-export async function getOrCreateAdaptivePlayer(sessionId: string) {
-  const pool = getDbPool();
-  await pool.query(
-    `insert into cat_adaptive_players(session_id)
-     values($1)
-     on conflict(session_id) do nothing`,
-    [sessionId],
-  );
-
-  const result = await pool.query(
+export async function getAdaptivePlayer(sessionId: string): Promise<AdaptivePlayer> {
+  const result = await getDbPool().query(
     `select session_id,
             reaction_mu_ms::float8,
             reaction_sigma_ms::float8,
@@ -106,7 +98,20 @@ export async function getOrCreateAdaptivePlayer(sessionId: string) {
     [sessionId],
   );
 
-  return result.rows[0] as AdaptivePlayer;
+  return (result.rows[0] || {
+    session_id: sessionId,
+    reaction_mu_ms: 285,
+    reaction_sigma_ms: 90,
+    deception_skill: 0.5,
+    uncertainty_skill: 0.5,
+    motor_skill: 0.5,
+    pressure_skill: 0.5,
+    observations: 0,
+    survived_looks: 0,
+    deaths: 0,
+    false_stops: 0,
+    last_arm: "",
+  }) as AdaptivePlayer;
 }
 
 export async function selectAdaptiveArm(player: AdaptivePlayer) {

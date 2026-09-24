@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDbPool, dbConfigured } from "../../lib/db";
-import { getOrCreateAdaptivePlayer, publicPlayerModel, selectAdaptiveArm, targetFailureRange } from "../../lib/adaptive";
+import { getAdaptivePlayer, publicPlayerModel, selectAdaptiveArm, targetFailureRange } from "../../lib/adaptive";
 import { EXPERIMENT_KEY, cleanText, json, pickWeightedVariant, validSessionId } from "../../lib/gameServer";
 
 export const prerender = false;
@@ -87,7 +87,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   if (dbConfigured()) {
     try {
-      const player = await getOrCreateAdaptivePlayer(sessionId);
+      const player = await getAdaptivePlayer(sessionId);
       const arm = await selectAdaptiveArm(player);
       adaptive = {
         enabled: true,
